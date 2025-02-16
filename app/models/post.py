@@ -8,17 +8,18 @@ from app.database import Base
 class Post(Base):
     __tablename__ = "posts"
 
-    id: int = Column(Integer, primary_key=True, index=True)
-    title: str = Column(String, nullable=False)
-    # content는 선택적 필드
-    content: str = Column(String, nullable=True)
-    # 작성 시 현재 UTC 시간, 수정 시 자동 갱신
-    time: datetime.datetime = Column(
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    content = Column(String, nullable=True)
+    time = Column(
         DateTime,
         default=datetime.datetime.utcnow,
         onupdate=datetime.datetime.utcnow,
         nullable=False
     )
-    user: str = Column(String, nullable=False)
-    board_id = Column(Integer, ForeignKey("boards.id"), nullable=False)
+    user = Column(String, nullable=False)
+
+    # board_id를 문자열로 선언하고, boards 테이블의 board_index를 참조
+    board_index = Column(String, ForeignKey("boards.board_index"), nullable=True)
+
     board = relationship("Board", back_populates="posts")

@@ -1,5 +1,4 @@
-# app/models/board.py
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, String
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -7,8 +6,8 @@ from app.database import Base
 class Board(Base):
     __tablename__ = "boards"
 
-    id = Column(Integer, primary_key=True, index=True)
-    board_index = Column(String, unique=True, index=True, nullable=False)
+    # board_index를 기본키로 사용 (예: "Free", "HN", "Front", "Back")
+    board_index = Column(String, primary_key=True, index=True, nullable=False)
 
-    # posts를 미리 로드하도록 설정 (eager loading)
-    posts = relationship("Post", back_populates="board", cascade="all, delete-orphan", lazy="selectin")
+    # Board와 Post 간의 관계 설정 (posts는 lazy 로딩 또는 eager 로딩 설정 가능)
+    posts = relationship("Post", back_populates="board", cascade="all, delete-orphan")
