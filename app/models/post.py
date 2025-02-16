@@ -20,6 +20,4 @@ class Post(Base):
         nullable=False
     )
     user: str = Column(String, nullable=False)
-
-    board_id: int = Column(Integer, ForeignKey("boards.id"), nullable=False)
     board = relationship("Board", back_populates="posts")
