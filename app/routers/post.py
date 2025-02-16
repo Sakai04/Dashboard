@@ -1,4 +1,4 @@
-# app/routers/board.py
+# app/routers/post.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
@@ -6,39 +6,62 @@ from app import schemas, crud
 from app.database import get_db
 
 router = APIRouter(
-    prefix="/boards",
-    tags=["boards"],
+    prefix="/posts",
+    tags=["posts"],
 )
 
-@router.get("/", response_model=List[schemas.board.Board])
-async def read_boards(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
-    boards = await crud.board.get_boards(db, skip=skip, limit=limit)
-    return boards
-
-@router.get("/{board_id}", response_model=schemas.board.Board)
-async def read_board(board_id: int, db: AsyncSession = Depends(get_db)):
+@router.post("/board/{board_id}", response_model=schemas.post.Post)
+async def create_post_for_board(
+    board_id: int,
+    post: schemas.post.PostCreate,
+    db: AsyncSession = Depends(get_db)
+):
+    # 게시판 존재 여부 확인
     board = await crud.board.get_board(db, board_id)
     if not board:
         raise HTTPException(status_code=404, detail="Board not found")
-    return board
+    # 게시글 생성
+    return await crud.post.create_post(db, post, board_id)
 
-@router.post("/", response_model=schemas.board.Board)
-async def create_new_board(board: schemas.board.BoardCreate, db: AsyncSession = Depends(get_db)):
-    existing = await crud.board.get_board_by_index(db, board.board_index)
-    if existing:
-        raise HTTPException(status_code=400, detail="Board already exists")
-    return await crud.board.create_board(db, board)
-
-@router.put("/{board_id}", response_model=schemas.board.Board)
-async def update_existing_board(board_id: int, board: schemas.board.BoardUpdate, db: AsyncSession = Depends(get_db)):
-    updated = await crud.board.update_board(db, board_id, board)
-    if not updated:
+@router.get("/board/{board_id}", response_model=List[schemas.post.Post])
+async def read_posts_by_board(
+    board_id: int,
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db)
+):
+    board = await crud.board.get_board(db, board_id)
+    if not board:
         raise HTTPException(status_code=404, detail="Board not found")
-    return updated
+    return await crud.post.get_posts_by_board(db, board_id, skip, limit)
 
-@router.delete("/{board_id}", response_model=schemas.board.Board)
-async def delete_existing_board(board_id: int, db: AsyncSession = Depends(get_db)):
-    deleted = await crud.board.delete_board(db, board_id)
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Board not found")
-    return deleted
+@router.get("/{post_id}", response_model=schemas.post.Post)
+async def read_post(
+    post_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    post = await crud.post.get_post(db, post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return post
+
+@router.put("/{post_id}", response_model=schemas.post.Post)
+async def update_post(
+    post_id: int,
+    post: schemas.post.PostUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+    updated_post = await crud.post.update_post(db, post_id, post)
+    if not updated_post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return updated_post
+
+@router.delete("/{post_id}", response_model=schemas.post.Post)
+async def delete_post(
+    post_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    deleted_post = await crud.post.delete_post(db, post_id)
+    if not deleted_post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return deleted_post
