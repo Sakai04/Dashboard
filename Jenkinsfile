@@ -4,7 +4,7 @@ pipeline {
     environment {
         AWS_ACCOUNT_ID = "296062584049"
         AWS_REGION = "ap-northeast-2"
-        ECR_REPO = "dash/back"
+        ECR_REPO = "dashback"
         IMAGE_TAG = "latest"
         // ECR URL 형식: {AWS_ACCOUNT_ID}.dkr.ecr.{AWS_REGION}.amazonaws.com
         ECR_URL = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
