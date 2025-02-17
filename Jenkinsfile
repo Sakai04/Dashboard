@@ -4,12 +4,15 @@ pipeline {
     environment {
         AWS_ACCOUNT_ID = "296062584049"
         AWS_REGION = "ap-northeast-2"
-        ECR_REPO = "dashback"
+        ECR_REPO = "dash/back"
         IMAGE_TAG = "latest"
         // ECR URL 형식: {AWS_ACCOUNT_ID}.dkr.ecr.{AWS_REGION}.amazonaws.com
         ECR_URL = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        // Dockerfile이 프로젝트 루트에 있으므로 BACKEND_DIR는 "." 입니다.
+        // Dockerfile은 프로젝트 루트에 있으므로 BACKEND_DIR는 "." 입니다.
         BACKEND_DIR = "."
+        // ECS 클러스터와 서비스 이름 (실제 AWS 콘솔에서 확인 후 수정)
+        ECS_CLUSTER = "devcluster"         // 예: "devcluster" 또는 "arn:aws:ecs:ap-northeast-2:296062584049:cluster/devcluster"
+        ECS_SERVICE = "dash2"            // 예: 실제 서비스 이름
     }
 
     stages {
@@ -20,7 +23,6 @@ pipeline {
         }
         stage('Docker Build') {
             steps {
-                // 프로젝트 루트에서 도커 이미지를 빌드합니다.
                 dir("${BACKEND_DIR}") {
                     script {
                         dockerImage = docker.build("${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}")
@@ -51,7 +53,7 @@ pipeline {
                 script {
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
                         sh '''
-                           aws ecs update-service --cluster devcluster --service dash/back --force-new-deployment --region ${AWS_REGION}
+                           aws ecs update-service --cluster ${ECS_CLUSTER} --service ${ECS_SERVICE} --force-new-deployment --region ${AWS_REGION}
                         '''
                     }
                 }
