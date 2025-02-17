@@ -4,20 +4,22 @@ pipeline {
     environment {
         AWS_ACCOUNT_ID = "296062584049"
         AWS_REGION = "ap-northeast-2"
-        ECR_REPO = "dashback"
+        ECR_REPO = "dashback"             // ECR 리포지토리 이름
         IMAGE_TAG = "latest"
         ECR_URL = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        BACKEND_DIR = "app"  // 백엔드 코드가 위치한 폴더 (프로젝트 구조에 맞게 조정)
+        BACKEND_DIR = "app"               // 백엔드 코드가 위치한 폴더 (프로젝트 구조에 맞게 조정)
     }
 
     stages {
         stage('Checkout') {
             steps {
+                // 저장소에서 코드를 체크아웃합니다.
                 checkout scm
             }
         }
         stage('Docker Build') {
             steps {
+                // 백엔드 폴더로 이동하여 Dockerfile을 기반으로 도커 이미지를 빌드합니다.
                 dir("${BACKEND_DIR}") {
                     script {
                         dockerImage = docker.build("${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}")
@@ -27,25 +29,36 @@ pipeline {
         }
         stage('Docker Login to ECR') {
             steps {
-                // 인스턴스 역할을 사용하는 경우 자격증명 없이 동작할 수 있으나, 필요 시 withCredentials 블록 사용
-                sh '''
-                    aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URL}
-                '''
+                // AWS 자격증명을 사용하여 ECR에 로그인합니다.
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-credentials'
+                ]]) {
+                    sh '''
+                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URL}
+                    '''
+                }
             }
         }
         stage('Docker Push') {
             steps {
                 script {
+                    // 빌드된 도커 이미지를 ECR에 푸시합니다.
                     dockerImage.push()
                 }
             }
         }
         stage('Deploy to ECS') {
             steps {
-                // ECS 업데이트: 클러스터와 서비스 이름은 실제 환경에 맞게 수정하세요.
-                sh '''
-                  aws ecs update-service --cluster devcluster --service dash/back --force-new-deployment --region ${AWS_REGION}
-                '''
+                // AWS 자격증명을 사용하여 ECS 서비스 업데이트(롤링 업데이트)를 수행합니다.
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-credentials'
+                ]]) {
+                    sh '''
+                        aws ecs update-service --cluster devcluster --service dash/back --force-new-deployment --region ${AWS_REGION}
+                    '''
+                }
             }
         }
     }
