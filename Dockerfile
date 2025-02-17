@@ -1,4 +1,5 @@
-FROM python:3.13
+FROM --platform=linux/amd64 python:3.13
+
 
 # 환경변수 설정: 바이트코드 생성 방지 및 stdout 바로 출력
 ENV PYTHONDONTWRITEBYTECODE=1
