@@ -70,7 +70,7 @@ pipeline {
                         sh '''
                           aws ecs update-service \
                             --cluster devcluster \
-                            --service dash/back \
+                            --service dashback \
                             --force-new-deployment \
                             --region ${AWS_REGION}
                         '''
