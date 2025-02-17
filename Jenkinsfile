@@ -2,12 +2,13 @@ pipeline {
     agent any
 
     environment {
+        // AWS 및 ECR 관련 환경변수 (실제 값으로 대체)
         AWS_ACCOUNT_ID = "296062584049"
         AWS_REGION = "ap-northeast-2"
+        // ECR 리포지토리 이름 (ECR 콘솔에서 dash/back 리포지토리를 생성했다고 가정)
         ECR_REPO = "dash/back"
-        // Dockerfile이 프로젝트 루트에 있으므로 BACKEND_DIR을 "."로 설정
-        BACKEND_DIR = "."
         IMAGE_TAG = "latest"
+        // ECR URL: "296062584049.dkr.ecr.ap-northeast-2.amazonaws.com"
         ECR_URL = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
     }
 
@@ -21,13 +22,11 @@ pipeline {
 
         stage('Docker Build') {
             steps {
-                echo "Building Docker image from project root..."
-                // 프로젝트 루트에서 Dockerfile을 빌드
-                dir("${BACKEND_DIR}") {
-                    script {
-                        dockerImage = docker.build("${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}", ".")
-                        echo "Docker image built: ${dockerImage.id}"
-                    }
+                echo "Building Docker image using Dockerfile from project root..."
+                script {
+                    // 프로젝트 루트에 Dockerfile이 있으므로 빌드 컨텍스트는 "."
+                    dockerImage = docker.build("${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}", ".")
+                    echo "Docker image built with ID: ${dockerImage.id}"
                 }
             }
         }
@@ -36,8 +35,9 @@ pipeline {
             steps {
                 echo "Logging in to AWS ECR..."
                 script {
+                    // Docker 로그인할 때는 전체 리포지토리 이름 없이 ECR URL만 사용
                     sh '''
-                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URL}
+                      aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URL}
                     '''
                 }
             }
@@ -56,6 +56,7 @@ pipeline {
             steps {
                 echo "Deploying to ECS service..."
                 script {
+                    // ECS 클러스터와 서비스 이름은 실제 환경에 맞게 수정하세요.
                     sh '''
                       aws ecs update-service \
                         --cluster devcluster \
