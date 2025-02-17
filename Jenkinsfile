@@ -7,9 +7,9 @@ pipeline {
         ECR_REPO = "dashback"
         IMAGE_TAG = "latest"
         ECR_URL = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        // EC2 인스턴스 접속 관련 환경 변수 (Jenkins Credentials에서 사용)
+        // EC2 관련 설정
         EC2_HOST = "your.ec2.public.ip.or.dns"  // 실제 EC2 인스턴스의 퍼블릭 IP 또는 DNS
-        EC2_USER = "ec2-user"  // 예시: Amazon Linux의 기본 사용자 (OS에 따라 변경)
+        EC2_USER = "ec2-user"  // Amazon Linux2의 기본 사용자 (환경에 따라 변경)
     }
 
     stages {
@@ -20,8 +20,8 @@ pipeline {
         }
         stage('Docker Build') {
             steps {
+                // 프로젝트 루트의 Dockerfile을 사용하여 도커 이미지를 빌드합니다.
                 script {
-                    // 프로젝트 루트의 Dockerfile을 사용하여 도커 이미지를 빌드합니다.
                     dockerImage = docker.build("${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}", "-f Dockerfile .")
                 }
             }
@@ -48,13 +48,14 @@ pipeline {
         stage('Deploy to EC2') {
             steps {
                 // SSH 플러그인을 사용하여 EC2 인스턴스에 접속한 후 명령어를 실행합니다.
-                // Jenkins의 SSH Pipeline Steps Plugin을 사용해야 합니다.
+                // allowAnyHosts: true 옵션을 추가하여 knownHosts 검증 오류를 우회합니다.
                 sshCommand remote: [
                     name: 'EC2_Instance',
                     host: "${EC2_HOST}",
                     port: 22,
                     user: "${EC2_USER}",
-                    credentialsId: "ec2-ssh"  // Jenkins에 등록한 SSH 자격증명 ID
+                    credentialsId: "ec2-ssh",  // Jenkins에 등록한 SSH 자격증명 ID
+                    allowAnyHosts: true
                 ], command: '''
                     echo "Pulling the latest image..."
                     docker pull ${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}
