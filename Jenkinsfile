@@ -4,32 +4,30 @@ pipeline {
     environment {
         AWS_ACCOUNT_ID = "296062584049"
         AWS_REGION = "ap-northeast-2"
-        ECR_REPO = "dashback"             // ECR 리포지토리 이름
+        ECR_REPO = "dashback"
         IMAGE_TAG = "latest"
         ECR_URL = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        BACKEND_DIR = "app"               // 백엔드 코드가 위치한 폴더 (프로젝트 구조에 맞게 조정)
+        // EC2 인스턴스 접속 관련 환경 변수 (Jenkins Credentials에서 사용)
+        EC2_HOST = "your.ec2.public.ip.or.dns"  // 실제 EC2 인스턴스의 퍼블릭 IP 또는 DNS
+        EC2_USER = "ec2-user"  // 예시: Amazon Linux의 기본 사용자 (OS에 따라 변경)
     }
 
     stages {
         stage('Checkout') {
             steps {
-                // 저장소에서 코드를 체크아웃합니다.
                 checkout scm
             }
         }
         stage('Docker Build') {
             steps {
-                // 백엔드 폴더로 이동하여 Dockerfile을 기반으로 도커 이미지를 빌드합니다.
-                dir("${BACKEND_DIR}") {
-                    script {
-                        dockerImage = docker.build("${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}")
-                    }
+                script {
+                    // 프로젝트 루트의 Dockerfile을 사용하여 도커 이미지를 빌드합니다.
+                    dockerImage = docker.build("${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}", "-f Dockerfile .")
                 }
             }
         }
         stage('Docker Login to ECR') {
             steps {
-                // AWS 자격증명을 사용하여 ECR에 로그인합니다.
                 withCredentials([[
                     $class: 'AmazonWebServicesCredentialsBinding',
                     credentialsId: 'aws-credentials'
@@ -43,22 +41,31 @@ pipeline {
         stage('Docker Push') {
             steps {
                 script {
-                    // 빌드된 도커 이미지를 ECR에 푸시합니다.
                     dockerImage.push()
                 }
             }
         }
-        stage('Deploy to ECS') {
+        stage('Deploy to EC2') {
             steps {
-                // AWS 자격증명을 사용하여 ECS 서비스 업데이트(롤링 업데이트)를 수행합니다.
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-credentials'
-                ]]) {
-                    sh '''
-                        aws ecs update-service --cluster devcluster --service dash/back --force-new-deployment --region ${AWS_REGION}
-                    '''
-                }
+                // SSH 플러그인을 사용하여 EC2 인스턴스에 접속한 후 명령어를 실행합니다.
+                // Jenkins의 SSH Pipeline Steps Plugin을 사용해야 합니다.
+                sshCommand remote: [
+                    name: 'EC2_Instance',
+                    host: "${EC2_HOST}",
+                    port: 22,
+                    user: "${EC2_USER}",
+                    credentialsId: "ec2-ssh"  // Jenkins에 등록한 SSH 자격증명 ID
+                ], command: '''
+                    echo "Pulling the latest image..."
+                    docker pull ${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}
+
+                    echo "Stopping existing container if exists..."
+                    docker stop my_app_container || true
+                    docker rm my_app_container || true
+
+                    echo "Running new container..."
+                    docker run -d --name my_app_container -p 80:8000 ${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}
+                '''
             }
         }
     }
