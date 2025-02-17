@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app import schemas, crud
+from app.schemas import Board
 from app.database import get_db
 
 router = APIRouter(prefix="/board", tags=["board"])
