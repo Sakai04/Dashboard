@@ -5,9 +5,9 @@ pipeline {
         AWS_ACCOUNT_ID = "296062584049"
         AWS_REGION = "ap-northeast-2"
         ECR_REPO = "dashback"
-        BACKEND_DIR = "app"
         IMAGE_TAG = "latest"
-        ECR_URL = "296062584049.dkr.ecr.ap-northeast-2.amazonaws.com"
+        ECR_URL = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        BACKEND_DIR = "app"  // 백엔드 코드가 위치한 폴더 (프로젝트 구조에 맞게 조정)
     }
 
     stages {
@@ -20,18 +20,17 @@ pipeline {
             steps {
                 dir("${BACKEND_DIR}") {
                     script {
-                        dockerImage = docker.build("${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}", "--platform linux/amd64 .")
+                        dockerImage = docker.build("${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}")
                     }
                 }
             }
         }
         stage('Docker Login to ECR') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
-                    sh '''
-                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URL}
-                    '''
-                }
+                // 인스턴스 역할을 사용하는 경우 자격증명 없이 동작할 수 있으나, 필요 시 withCredentials 블록 사용
+                sh '''
+                    aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URL}
+                '''
             }
         }
         stage('Docker Push') {
@@ -43,17 +42,16 @@ pipeline {
         }
         stage('Deploy to ECS') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
-                    sh '''
-                        aws ecs update-service --cluster devcluster --service dash-back --force-new-deployment --region ${AWS_REGION}
-                    '''
-                }
+                // ECS 업데이트: 클러스터와 서비스 이름은 실제 환경에 맞게 수정하세요.
+                sh '''
+                  aws ecs update-service --cluster devcluster --service dash/back --force-new-deployment --region ${AWS_REGION}
+                '''
             }
         }
     }
     post {
         success {
-            echo "Backend deployment succeeded."
+            echo "Backend deployment completed successfully."
         }
         failure {
             echo "Backend deployment failed."
