@@ -24,7 +24,7 @@ pipeline {
             steps {
                 echo "Building Docker image using Dockerfile from project root..."
                 script {
-                    dockerImage = docker.build("${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}", ".")
+                    dockerImage = docker.build("${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}", "--platform linux/amd64 .")
                     echo "Docker image built with ID: ${dockerImage.id}"
                 }
             }
