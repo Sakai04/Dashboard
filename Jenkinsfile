@@ -4,42 +4,36 @@ pipeline {
     environment {
         AWS_ACCOUNT_ID = "296062584049"
         AWS_REGION = "ap-northeast-2"
-        ECR_REPO = "dash/back"
-        // Dockerfile이 프로젝트 루트에 있으므로 빌드 컨텍스트는 "."
-        BACKEND_DIR = "."
+        ECR_REPO = "das/back"
         IMAGE_TAG = "latest"
-        // ECR URL 형식: AWS_ACCOUNT_ID.dkr.ecr.AWS_REGION.amazonaws.com
+        // ECR URL 형식: {AWS_ACCOUNT_ID}.dkr.ecr.{AWS_REGION}.amazonaws.com
         ECR_URL = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        // 백엔드 소스 코드가 위치한 디렉토리 (예: app)
+        BACKEND_DIR = "app"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                echo "Checking out source code..."
+                // Git 저장소에서 소스코드를 체크아웃합니다.
                 checkout scm
             }
         }
-
         stage('Docker Build') {
             steps {
-                echo "Building Docker image using Dockerfile from project root..."
-                script {
-                    dockerImage = docker.build("${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}", "--platform linux/amd64 .")
-                    echo "Docker image built with ID: ${dockerImage.id}"
+                // BACKEND_DIR 디렉토리 내에서 도커 이미지를 빌드합니다.
+                dir("${BACKEND_DIR}") {
+                    script {
+                        dockerImage = docker.build("${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}")
+                    }
                 }
             }
         }
-
         stage('Docker Login to ECR') {
             steps {
-                echo "Logging in to AWS ECR..."
                 script {
-                    withCredentials([[
-                        $class: 'AmazonWebServicesCredentialsBinding',
-                        credentialsId: 'aws-credentials', // Jenkins에 등록된 AWS 자격 증명 ID
-                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                    ]]) {
+                    // AWS 자격증명은 Jenkins Credentials에 "aws-credentials" ID로 등록되어 있어야 합니다.
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
                         sh '''
                             aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URL}
                         '''
@@ -47,45 +41,33 @@ pipeline {
                 }
             }
         }
-
         stage('Docker Push') {
             steps {
-                echo "Pushing Docker image to ECR..."
                 script {
+                    // 빌드된 이미지를 ECR로 푸시합니다.
                     dockerImage.push()
                 }
             }
         }
-
         stage('Deploy to ECS') {
             steps {
-                echo "Deploying to ECS service..."
                 script {
-                    withCredentials([[
-                        $class: 'AmazonWebServicesCredentialsBinding',
-                        credentialsId: 'aws-credentials',
-                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                    ]]) {
+                    // ECS 업데이트 명령어 실행 전 AWS 자격증명을 withCredentials로 주입합니다.
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
                         sh '''
-                          aws ecs update-service \
-                            --cluster devcluster \
-                            --service dashback \
-                            --force-new-deployment \
-                            --region ${AWS_REGION}
+                           aws ecs update-service --cluster devcluster --service dash/back --force-new-deployment --region ${AWS_REGION}
                         '''
                     }
                 }
             }
         }
     }
-
     post {
         success {
-            echo "Backend deployment succeeded!"
+            echo "Backend deployment succeeded."
         }
         failure {
-            echo "Backend deployment failed!"
+            echo "Backend deployment failed."
         }
     }
 }
