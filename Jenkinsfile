@@ -5,7 +5,7 @@ pipeline {
         AWS_ACCOUNT_ID = "296062584049"
         AWS_REGION = "ap-northeast-2"
         ECR_REPO = "dash/back"
-        // Dockerfile이 프로젝트 루트에 있으므로, 빌드 컨텍스트는 "."로 설정
+        // Dockerfile이 프로젝트 루트에 있으므로 빌드 컨텍스트는 "."
         BACKEND_DIR = "."
         IMAGE_TAG = "latest"
         // ECR URL 형식: AWS_ACCOUNT_ID.dkr.ecr.AWS_REGION.amazonaws.com
@@ -34,10 +34,9 @@ pipeline {
             steps {
                 echo "Logging in to AWS ECR..."
                 script {
-                    // Jenkins Credentials 'aws-credentials'에 등록된 AWS 자격증명을 사용합니다.
                     withCredentials([[
                         $class: 'AmazonWebServicesCredentialsBinding',
-                        credentialsId: 'aws-credentials', // Jenkins에 등록된 AWS 자격증명 ID
+                        credentialsId: 'aws-credentials', // Jenkins에 등록된 AWS 자격 증명 ID
                         accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                     ]]) {
@@ -62,13 +61,20 @@ pipeline {
             steps {
                 echo "Deploying to ECS service..."
                 script {
-                    sh '''
-                      aws ecs update-service \
-                        --cluster devcluster \
-                        --service dash/back \
-                        --force-new-deployment \
-                        --region ${AWS_REGION}
-                    '''
+                    withCredentials([[
+                        $class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: 'aws-credentials',
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                    ]]) {
+                        sh '''
+                          aws ecs update-service \
+                            --cluster devcluster \
+                            --service dash/back \
+                            --force-new-deployment \
+                            --region ${AWS_REGION}
+                        '''
+                    }
                 }
             }
         }
