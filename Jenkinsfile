@@ -50,11 +50,10 @@ pipeline {
                 // SSH 플러그인을 사용하여 EC2 인스턴스에 접속한 후 명령어를 실행합니다.
                 // allowAnyHosts: true 옵션을 추가하여 knownHosts 검증 오류를 우회합니다.
                 sshCommand remote: [
-                    name: 'EC2_Instance',
-                    host: "${EC2_HOST}",
+                    host: '3.34.44.0',
                     port: 22,
                     user: "${EC2_USER}",
-                    credentialsId: "ec2-ssh",  // Jenkins에 등록한 SSH 자격증명 ID
+                    credentialsId: "dashkey",  // Jenkins에 등록한 SSH 자격증명 ID
                     allowAnyHosts: true
                 ], command: '''
                     echo "Pulling the latest image..."
