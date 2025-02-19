@@ -51,7 +51,7 @@ pipeline {
                     host: "${EC2_HOST}",
                     port: 22,
                     user: "${EC2_USER}",
-                    credentialsId: "ec2-ssh-key",  // Jenkins에 등록한 EC2용 SSH 자격증명 ID (공개키가 EC2의 authorized_keys에 등록되어 있어야 함)
+                    credentialsId: "dash_key",  // Jenkins에 등록한 EC2용 SSH 자격증명 ID (공개키가 EC2의 authorized_keys에 등록되어 있어야 함)
                     allowAnyHosts: true
                 ], command: '''
                     echo "Pulling the latest image..."
