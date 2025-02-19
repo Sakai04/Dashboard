@@ -6,9 +6,8 @@ pipeline {
         AWS_REGION = "ap-northeast-2"
         ECR_REPO = "dashback"
         IMAGE_TAG = "latest"
-        // ECR URL은 AWS 계정과 리전을 조합하여 만듭니다.
         ECR_URL = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        // EC2 설정 – 실제 EC2 인스턴스의 퍼블릭 IP 또는 DNS로 변경하세요.
+        // EC2 관련 설정 (실제 EC2 인스턴스의 퍼블릭 IP 또는 DNS로 수정)
         EC2_HOST = "3.34.44.0"
         EC2_USER = "ec2-user"
     }
@@ -21,8 +20,8 @@ pipeline {
         }
         stage('Docker Build') {
             steps {
+                // 프로젝트 루트의 Dockerfile을 사용하여 도커 이미지를 빌드합니다.
                 script {
-                    // Dockerfile이 프로젝트 루트에 있다고 가정합니다.
                     dockerImage = docker.build("${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}", "-f Dockerfile .")
                 }
             }
@@ -48,28 +47,29 @@ pipeline {
         }
         stage('Deploy to EC2') {
             steps {
-                // SSH Steps 플러그인을 사용하여 원격 EC2에 접속 후 명령어 실행
+                // SSH 플러그인을 사용하여 EC2 인스턴스에 접속한 후 명령어 실행
                 sshCommand remote: [
                     name: "EC2_Instance",
                     host: "${EC2_HOST}",
                     port: 22,
                     user: "${EC2_USER}",
-                    credentialsId: "dashkey",  // Jenkins에 등록한 SSH 자격증명 ID (예: dashkey)
+                    credentialsId: "dashkey", // Jenkins에 등록한 SSH 자격증명 ID (pem 키 기반)
                     allowAnyHosts: true
                 ], command: '''
                     echo "Pulling the latest image..."
-                    docker pull ${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}
+                    sudo docker pull ${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}
 
                     echo "Stopping existing container if exists..."
-                    docker stop my_app_container || true
-                    docker rm my_app_container || true
+                    sudo docker stop my_app_container || true
+                    sudo docker rm my_app_container || true
 
                     echo "Running new container..."
-                    docker run -d --name my_app_container -p 80:8000 ${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}
-                '''
+                    sudo docker run -d --name my_app_container -p 80:8000 ${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}
+                ''', sudo: true
             }
         }
     }
+
     post {
         success {
             echo "Backend deployment completed successfully."
