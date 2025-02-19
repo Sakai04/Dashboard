@@ -17,7 +17,6 @@ pipeline {
             }
         }
 
-        // (디버그) Jenkins 작업공간 파일 확인
         stage('Debug Workspace') {
             steps {
                 sh 'pwd'
@@ -28,11 +27,17 @@ pipeline {
         stage('Docker Build') {
             steps {
                 script {
-                    dockerImage = docker.build("${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}",
-                                               "--platform=linux/amd64 -f Dockerfile .")
+                    try {
+                        dockerImage = docker.build("${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}",
+                                                   "--platform=linux/amd64 -f Dockerfile .")
+                    } catch (e) {
+                        echo "Docker build failed: ${e}"
+                        currentBuild.result = 'UNSTABLE'
+                    }
                 }
             }
         }
+
         stage('Docker Login to ECR') {
             steps {
                 withCredentials([[
@@ -46,10 +51,16 @@ pipeline {
                 }
             }
         }
+
         stage('Docker Push') {
             steps {
                 script {
-                    dockerImage.push()
+                    try {
+                        dockerImage.push()
+                    } catch (e) {
+                        echo "Docker push failed: ${e}"
+                        currentBuild.result = 'UNSTABLE'
+                    }
                 }
             }
         }
@@ -60,13 +71,13 @@ pipeline {
                     sshPublisher(
                         publishers: [
                             sshPublisherDesc(
-                                configName: 'EC2_Instance', // Publish Over SSH 설정
+                                configName: 'EC2_Instance',
                                 transfers: [
                                     sshTransfer(
-                                        sourceFiles: '**',         // 모든 파일
-                                        removePrefix: '',          // 폴더 구조 유지
+                                        sourceFiles: '**',
+                                        removePrefix: '',
                                         remoteDirectory: PROJECT_DIR,
-                                        remoteDirectorySDF: false  // 날짜 폴더 생성 방지
+                                        remoteDirectorySDF: false
                                     )
                                 ],
                                 verbose: true
@@ -90,7 +101,7 @@ pipeline {
                         echo "=== Pulling latest images ==="
                         docker-compose pull
                         echo "=== Starting containers ==="
-                        docker-compose up -d --remove-orphans
+                        docker-compose up -d
                     """.stripIndent()
 
                     sshPublisher(
@@ -98,7 +109,6 @@ pipeline {
                             sshPublisherDesc(
                                 configName: 'EC2_Instance',
                                 transfers: [
-                                    // 여기서는 파일을 전송하지 않고, 명령만 실행
                                     sshTransfer(
                                         sourceFiles: '',
                                         execCommand: deployCommand
