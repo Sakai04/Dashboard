@@ -8,8 +8,8 @@ pipeline {
         IMAGE_TAG = "latest"
         ECR_URL = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         // EC2 관련 설정 – 실제 환경에 맞게 수정하세요.
-        EC2_HOST = "3.34.44.0"        // EC2 인스턴스의 퍼블릭 IP 또는 DNS
-        EC2_USER = "ec2-user"         // Amazon Linux 2의 기본 사용자 (필요 시 수정)
+        EC2_HOST = "3.34.44.0"         // EC2 인스턴스의 퍼블릭 IP 또는 DNS
+        EC2_USER = "ec2-user"          // Amazon Linux 2의 기본 사용자 (필요 시 수정)
     }
 
     stages {
@@ -21,7 +21,7 @@ pipeline {
         stage('Docker Build') {
             steps {
                 script {
-                    // 프로젝트 루트에 있는 Dockerfile을 사용하여 이미지를 빌드합니다.
+                    // 프로젝트 루트에 있는 Dockerfile을 사용하여 도커 이미지를 빌드합니다.
                     dockerImage = docker.build("${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}", "-f Dockerfile .")
                 }
             }
@@ -47,7 +47,6 @@ pipeline {
         }
         stage('Test SSH Connection') {
             steps {
-                // EC2에 간단히 접속해 "SSH connection successful" 메시지를 출력해 SSH 연결이 잘 되는지 테스트합니다.
                 sshCommand remote: [
                     name: "EC2_Test",
                     host: "${EC2_HOST}",
@@ -60,7 +59,6 @@ pipeline {
         }
         stage('Deploy to EC2') {
             steps {
-                // EC2 인스턴스에 SSH 접속 후, 도커 이미지를 pull하고 기존 컨테이너를 중지/삭제한 뒤 새로운 컨테이너를 실행합니다.
                 sshCommand remote: [
                     name: "EC2_Instance",
                     host: "${EC2_HOST}",
