@@ -7,9 +7,9 @@ pipeline {
         ECR_REPO = "dashback"
         IMAGE_TAG = "latest"
         ECR_URL = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        // EC2 관련 설정 (실제 EC2 인스턴스의 퍼블릭 IP 또는 DNS로 수정)
-        EC2_HOST = "3.34.44.0"
-        EC2_USER = "ec2-user"
+        // EC2 관련 설정
+        EC2_HOST = "3.34.44.0"  // 실제 EC2 인스턴스의 퍼블릭 IP 또는 DNS
+        EC2_USER = "ec2-user"   // 예: Amazon Linux 2의 기본 사용자
     }
 
     stages {
@@ -20,7 +20,7 @@ pipeline {
         }
         stage('Docker Build') {
             steps {
-                // 프로젝트 루트의 Dockerfile을 사용하여 도커 이미지를 빌드합니다.
+                // 프로젝트 루트에 있는 Dockerfile 사용 (필요에 따라 BACKEND_DIR 조정)
                 script {
                     dockerImage = docker.build("${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}", "-f Dockerfile .")
                 }
@@ -45,15 +45,28 @@ pipeline {
                 }
             }
         }
+        stage('Test SSH Connection') {
+            steps {
+                // 간단한 SSH 연결 테스트 (명령어: echo "SSH 연결 테스트 완료")
+                sshCommand remote: [
+                    name: "EC2_Test",
+                    host: "${EC2_HOST}",
+                    port: 22,
+                    user: "${EC2_USER}",
+                    credentialsId: "dashkey",  // Jenkins에 등록한 SSH 자격증명 ID
+                    allowAnyHosts: true
+                ], command: "echo 'SSH 연결 테스트 완료'"
+            }
+        }
         stage('Deploy to EC2') {
             steps {
-                // SSH 플러그인을 사용하여 EC2 인스턴스에 접속한 후 명령어 실행
+                // EC2 인스턴스에 SSH로 접속하여 도커 배포 명령어 실행
                 sshCommand remote: [
                     name: "EC2_Instance",
                     host: "${EC2_HOST}",
                     port: 22,
                     user: "${EC2_USER}",
-                    credentialsId: "dashkey", // Jenkins에 등록한 SSH 자격증명 ID (pem 키 기반)
+                    credentialsId: "dashkey",
                     allowAnyHosts: true
                 ], command: '''
                     echo "Pulling the latest image..."
@@ -65,11 +78,10 @@ pipeline {
 
                     echo "Running new container..."
                     sudo docker run -d --name my_app_container -p 80:8000 ${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}
-                ''', sudo: true
+                '''
             }
         }
     }
-
     post {
         success {
             echo "Backend deployment completed successfully."
