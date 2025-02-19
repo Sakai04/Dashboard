@@ -7,9 +7,8 @@ pipeline {
         ECR_REPO       = "dashback"
         IMAGE_TAG      = "latest"
         ECR_URL        = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-
-        EC2_HOST = "3.34.44.0"
-        EC2_USER = "ec2-user"
+        EC2_HOST       = "3.34.44.0"   // 실제 EC2 인스턴스의 퍼블릭 IP 또는 DNS
+        // EC2_USER는 자격 증명 "dash_key"에 이미 포함되어 있다고 가정
     }
 
     stages {
@@ -18,30 +17,6 @@ pipeline {
                 checkout scm
             }
         }
-
-        stage('Configure sudo on EC2') {
-            steps {
-                sshCommand remote: [
-                    name: "EC2_Instance",
-                    host: "${EC2_HOST}",
-                    port: 22,
-                    user: "${EC2_USER}",
-                    credentialsId: "dash_key", // Jenkins에 등록한 SSH 자격 증명 ID
-                    allowAnyHosts: true
-                ], command: '''
-                    # 1) ec2-user에 대해 비밀번호 없이 sudo 허용
-                    #    /etc/sudoers 파일에 한 줄 추가
-                    sudo su -c "echo 'ec2-user ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers"
-
-                    # 2) requiretty가 활성화되어 있다면 주석 처리
-                    #    (기존에 "Defaults requiretty"가 있다면 주석처리)
-                    sudo sed -i 's/^Defaults.*requiretty/# &/' /etc/sudoers
-
-                    echo "sudoers 설정 완료"
-                '''
-            }
-        }
-
         stage('Docker Build') {
             steps {
                 script {
@@ -49,7 +24,6 @@ pipeline {
                 }
             }
         }
-
         stage('Docker Login to ECR') {
             steps {
                 withCredentials([[
@@ -63,7 +37,6 @@ pipeline {
                 }
             }
         }
-
         stage('Docker Push') {
             steps {
                 script {
@@ -71,14 +44,28 @@ pipeline {
                 }
             }
         }
-
+        stage('Configure sudo on EC2') {
+            steps {
+                sshCommand remote: [
+                    name: "EC2_Instance",
+                    host: "${EC2_HOST}",
+                    port: 22,
+                    credentialsId: "dash_key",  // "dash_key" 자격 증명에 ec2-user와 PEM 키가 설정되어 있어야 함
+                    allowAnyHosts: true
+                ], command: '''
+                    # 비밀번호 없이 sudo를 사용하도록 설정 (이미 등록된 내용이 중복되지 않도록 주의)
+                    sudo su -c "echo 'ec2-user ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers"
+                    sudo sed -i 's/^Defaults.*requiretty/# &/' /etc/sudoers
+                    echo "sudoers 설정 완료"
+                '''
+            }
+        }
         stage('Deploy to EC2') {
             steps {
                 sshCommand remote: [
                     name: "EC2_Instance",
                     host: "${EC2_HOST}",
                     port: 22,
-                    user: "${EC2_USER}",
                     credentialsId: "dash_key",
                     allowAnyHosts: true
                 ], command: '''
@@ -95,7 +82,6 @@ pipeline {
             }
         }
     }
-
     post {
         success {
             echo "Backend deployment completed successfully."
