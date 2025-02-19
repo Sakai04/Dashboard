@@ -7,7 +7,7 @@ pipeline {
         ECR_REPO       = "dashback"
         IMAGE_TAG      = "latest"
         ECR_URL        = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        // EC2_HOST, EC2_USER 등은 Publish Over SSH 설정에서 이미 구성되었으므로 여기서는 사용하지 않습니다.
+        // EC2 접속 정보는 Publish Over SSH 설정(예: 'EC2_Instance')에서 관리합니다.
     }
 
     stages {
@@ -48,10 +48,9 @@ pipeline {
                 sshPublisher(
                     publishers: [
                         sshPublisherDesc(
-                            configName: 'EC2_Instance', // Jenkins에 미리 설정된 Publish Over SSH 서버 설정 이름
+                            configName: 'EC2_Instance', // Jenkins에 미리 설정한 Publish Over SSH 서버 이름
                             transfers: [
                                 sshTransfer(
-                                    // 파일 전송은 없으므로 sourceFiles는 비워둡니다.
                                     sourceFiles: '',
                                     execCommand: '''
                                         # ec2-user에 대해 비밀번호 없이 sudo 허용
@@ -70,30 +69,33 @@ pipeline {
         }
         stage('Deploy to EC2') {
             steps {
-                sshPublisher(
-                    publishers: [
-                        sshPublisherDesc(
-                            configName: 'EC2_Instance',
-                            transfers: [
-                                sshTransfer(
-                                    sourceFiles: '',
-                                    execCommand: '''
-                                        echo "Pulling the latest image..."
-                                        sudo docker pull ${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}
+                script {
+                    // 환경 변수를 미리 확장한 명령어 문자열 생성
+                    def deployCommand = """
+                        echo "Pulling the latest image..."
+                        sudo docker pull ${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}
+                        echo "Stopping existing container if exists..."
+                        sudo docker stop my_app_container || true
+                        sudo docker rm my_app_container || true
+                        echo "Running new container..."
+                        sudo docker run -d --name my_app_container -p 80:8000 ${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}
+                    """.stripIndent()
 
-                                        echo "Stopping existing container if exists..."
-                                        sudo docker stop my_app_container || true
-                                        sudo docker rm my_app_container || true
-
-                                        echo "Running new container..."
-                                        sudo docker run -d --name my_app_container -p 80:8000 ${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}
-                                    '''
-                                )
-                            ],
-                            verbose: true
-                        )
-                    ]
-                )
+                    sshPublisher(
+                        publishers: [
+                            sshPublisherDesc(
+                                configName: 'EC2_Instance', // Publish Over SSH에 등록된 서버 설정 이름
+                                transfers: [
+                                    sshTransfer(
+                                        sourceFiles: '',
+                                        execCommand: deployCommand
+                                    )
+                                ],
+                                verbose: true
+                            )
+                        ]
+                    )
+                }
             }
         }
     }
