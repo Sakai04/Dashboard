@@ -1,8 +1,12 @@
 pipeline {
     agent any
 
+    tools {
+        git 'Default'  // Global Tool Configuration에 등록한 Git 툴 이름
+    }
+
     environment {
-        // AWS ECR 설정
+        // AWS 설정
         AWS_ACCOUNT_ID = "296062584049"
         AWS_REGION     = "ap-northeast-2"
         ECR_REPO       = "dashback"
@@ -10,18 +14,37 @@ pipeline {
         ECR_URL        = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         PROJECT_DIR    = "/home/ec2-user/project"
 
-        // Jenkins Credentials 주입
+        // Credentials 주입
         DB_USER        = credentials('DB_USER')
         DB_PASSWORD    = credentials('DB_PASSWORD')
         DB_NAME        = credentials('DB_NAME')
         PGADMIN_EMAIL  = credentials('PGADMIN_EMAIL')
         PGADMIN_PASS   = credentials('PGADMIN_PASSWORD')
+
+        // Git 경로 강제 지정
+        PATH = "/usr/bin/git:$PATH"
     }
 
     stages {
         stage('Checkout SCM') {
             steps {
-                checkout scm
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/master']],
+                    extensions: [],
+                    userRemoteConfigs: [[url: 'https://github.com/Sakai04/Dashboard']]
+                ])
+            }
+        }
+
+        stage('Debug Git Setup') {
+            steps {
+                sh '''
+                    echo "=== Git 설치 확인 ==="
+                    which git
+                    git --version
+                    echo "PATH: $PATH"
+                '''
             }
         }
 
@@ -43,7 +66,7 @@ pipeline {
         stage('Prepare Config Files') {
             steps {
                 sh '''
-                    # docker-compose.yml 생성
+                    # docker-compose-prod.yml 생성
                     cat <<EOD > docker-compose-prod.yml
                     version: '3.8'
 
@@ -57,13 +80,13 @@ pipeline {
                         networks:
                           - app-net
                         healthcheck:
-                          test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+                          test: ["CMD-SHELL", "pg_isready -U \${POSTGRES_USER} -d \${POSTGRES_DB}"]
                           interval: 10s
                           timeout: 5s
                           retries: 5
 
                       app:
-                        image: ${ECR_URL}/dashback:latest
+                        image: \${ECR_URL}/dashback:latest
                         container_name: prod-app
                         env_file: .env
                         depends_on:
@@ -93,13 +116,13 @@ pipeline {
 
                     # .env 파일 생성
                     cat <<EOF > .env
-                    POSTGRES_USER=${DB_USER}
-                    POSTGRES_PASSWORD=${DB_PASSWORD}
-                    POSTGRES_DB=${DB_NAME}
-                    PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL}
-                    PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASS}
-                    DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?ssl=require
-                    ECR_URL=${ECR_URL}
+                    POSTGRES_USER=\${DB_USER}
+                    POSTGRES_PASSWORD=\${DB_PASSWORD}
+                    POSTGRES_DB=\${DB_NAME}
+                    PGADMIN_DEFAULT_EMAIL=\${PGADMIN_EMAIL}
+                    PGADMIN_DEFAULT_PASSWORD=\${PGADMIN_PASS}
+                    DATABASE_URL=postgresql+asyncpg://\${DB_USER}:\${DB_PASSWORD}@db:5432/\${DB_NAME}?ssl=require
+                    ECR_URL=\${ECR_URL}
                     EOF
                 '''
             }
@@ -117,12 +140,14 @@ pipeline {
                                     removePrefix: '',
                                     remoteDirectory: PROJECT_DIR,
                                     execCommand: """
+                                        #!/bin/bash
                                         cd ${PROJECT_DIR}
                                         export COMPOSE_PROJECT_NAME=dashboard_prod
                                         docker-compose -f docker-compose-prod.yml down --remove-orphans
                                         docker-compose -f docker-compose-prod.yml pull
                                         docker-compose -f docker-compose-prod.yml up -d
                                         docker ps -a
+                                        docker logs prod-app
                                     """
                                 )
                             ],
@@ -136,7 +161,10 @@ pipeline {
 
     post {
         always {
-            sh 'rm -f docker-compose-prod.yml .env'
+            cleanWs()
+        }
+        failure {
+            slackSend channel: '#deploy-alerts', message: "Build Failed - ${env.JOB_NAME} ${env.BUILD_NUMBER}"
         }
     }
 }
