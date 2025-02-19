@@ -1,48 +1,49 @@
+version: '3.8'
 
 services:
   db:
-    image: postgres:latest
+    image: postgres:15  # latest 대신 특정 버전 명시
     container_name: mypostgres
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=0684
-      - POSTGRES_DB=dashboard
+      POSTGRES_USER: ${DB_USER}  # Jenkins에서 주입
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    networks:
+      - app-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]  # DB명 추가
       interval: 10s
       timeout: 5s
       retries: 5
 
   app:
-    build: .
+    image: ${ECR_URL}/dashback:latest  # ECR 이미지 사용
     container_name: fastapi_app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    volumes:
-      - .:/app
-    ports:
-      - "8000:8000"
+    networks:
+      - app-network
     depends_on:
       db:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:0684@db:5432/dashboard
+      DATABASE_URL: postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?ssl=require  # SSL 옵션 추가
 
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: mypgadmin
     environment:
-      - PGADMIN_DEFAULT_EMAIL=pxj0684@gmail.com
-      - PGADMIN_DEFAULT_PASSWORD=0684
-    ports:
-      - "80:80"
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    networks:
+      - app-network
     depends_on:
       - db
+
+networks:
+  app-network:
+    driver: bridge
 
 volumes:
   postgres_data:

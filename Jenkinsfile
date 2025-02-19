@@ -8,83 +8,52 @@ pipeline {
         IMAGE_TAG      = "latest"
         ECR_URL        = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         PROJECT_DIR    = "/home/ec2-user/project"
+
+        // Credentials 주입
+        DB_USER        = credentials('DB_USER')
+        DB_PASSWORD    = credentials('DB_PASSWORD')
+        DB_NAME        = credentials('DB_NAME')
+        PGADMIN_EMAIL  = credentials('PGADMIN_EMAIL')
+        PGADMIN_PASSWORD = credentials('PGADMIN_PASSWORD')
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
+        // [기존 stage 생략...]
 
-        stage('Debug Workspace') {
+        stage('Prepare Env File') {
             steps {
-                sh 'pwd'
-                sh 'ls -alR'
-            }
-        }
-
-        stage('Docker Build') {
-            steps {
-                script {
-                    try {
-                        dockerImage = docker.build("${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}",
-                                                   "--platform=linux/amd64 -f Dockerfile .")
-                    } catch (e) {
-                        echo "Docker build failed: ${e}"
-                        currentBuild.result = 'UNSTABLE'
-                    }
-                }
-            }
-        }
-
-        stage('Docker Login to ECR') {
-            steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-credentials'
-                ]]) {
-                    sh '''
-                        aws ecr get-login-password --region ${AWS_REGION} \
-                          | docker login --username AWS --password-stdin ${ECR_URL}
-                    '''
-                }
-            }
-        }
-
-        stage('Docker Push') {
-            steps {
-                script {
-                    try {
-                        dockerImage.push()
-                    } catch (e) {
-                        echo "Docker push failed: ${e}"
-                        currentBuild.result = 'UNSTABLE'
-                    }
-                }
+                sh '''
+                    cat <<EOF > .env
+                    DB_USER=${DB_USER}
+                    DB_PASSWORD=${DB_PASSWORD}
+                    DB_NAME=${DB_NAME}
+                    PGADMIN_EMAIL=${PGADMIN_EMAIL}
+                    PGADMIN_PASSWORD=${PGADMIN_PASSWORD}
+                    ECR_URL=${ECR_URL}
+                    EOF
+                '''
             }
         }
 
         stage('Transfer Files to EC2') {
             steps {
-                script {
-                    sshPublisher(
-                        publishers: [
-                            sshPublisherDesc(
-                                configName: 'EC2_Instance',
-                                transfers: [
-                                    sshTransfer(
-                                        sourceFiles: '**', // docker-compose.yml 포함
-                                        removePrefix: '',
-                                        remoteDirectory: PROJECT_DIR,
-                                        remoteDirectorySDF: false
-                                    )
-                                ],
-                                verbose: true
-                            )
-                        ]
-                    )
-                }
+                sshPublisher(
+                    publishers: [
+                        sshPublisherDesc(
+                            configName: 'EC2_Instance',
+                            transfers: [
+                                sshTransfer(
+                                    sourceFiles: '**/*',
+                                    removePrefix: '',
+                                    remoteDirectory: PROJECT_DIR,
+                                    remoteDirectorySDF: false,
+                                    execTimeout: 1200000
+                                )
+                            ],
+                            verbose: true
+                        )
+                    ]
+                )
             }
         }
 
@@ -93,19 +62,21 @@ pipeline {
                 script {
                     def deployCommand = """
                         cd ${PROJECT_DIR}
-                        if [ -f docker-compose.yml ]; then
-                            echo "=== Debug: List files in ${PROJECT_DIR} ==="
-                            ls -l
-                            echo "=== Show docker-compose.yml content ==="
-                            cat docker-compose.yml
+                        export \$(grep -v '^#' .env | xargs)  # 환경 변수 로드
 
-                            echo "=== Pulling latest images ==="
-                            docker-compose pull
-                            echo "=== Starting containers ==="
-                            docker-compose up -d
-                        else
-                            echo "docker-compose.yml not found."
-                        fi
+                        # ECR 이미지 풀
+                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URL}
+
+                        # 기존 컨테이너 정리
+                        docker-compose down --remove-orphans
+
+                        # 새 컨테이너 실행
+                        docker-compose up -d --force-recreate
+
+                        # 상태 확인
+                        sleep 10
+                        docker ps -a
+                        docker logs fastapi_app
                     """.stripIndent()
 
                     sshPublisher(
@@ -124,15 +95,6 @@ pipeline {
                     )
                 }
             }
-        }
-    }
-
-    post {
-        success {
-            echo "Deployment completed successfully."
-        }
-        failure {
-            echo "Deployment failed."
         }
     }
 }
