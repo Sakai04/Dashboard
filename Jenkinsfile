@@ -7,9 +7,9 @@ pipeline {
         ECR_REPO = "dashback"
         IMAGE_TAG = "latest"
         ECR_URL = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        // EC2 관련 설정 – 실제 환경에 맞게 수정하세요.
-        EC2_HOST = "3.34.44.0"         // EC2 인스턴스의 퍼블릭 IP 또는 DNS
-        EC2_USER = "ec2-user"          // Amazon Linux 2의 기본 사용자 (필요 시 수정)
+        // EC2 관련 설정
+        EC2_HOST = "3.34.44.0"  // 실제 EC2 인스턴스의 퍼블릭 IP 또는 DNS
+        EC2_USER = "ec2-user"   // Amazon Linux 2의 기본 사용자
     }
 
     stages {
@@ -21,7 +21,6 @@ pipeline {
         stage('Docker Build') {
             steps {
                 script {
-                    // 프로젝트 루트에 있는 Dockerfile을 사용하여 도커 이미지를 빌드합니다.
                     dockerImage = docker.build("${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}", "-f Dockerfile .")
                 }
             }
@@ -45,18 +44,6 @@ pipeline {
                 }
             }
         }
-        stage('Test SSH Connection') {
-            steps {
-                sshCommand remote: [
-                    name: "EC2_Test",
-                    host: "${EC2_HOST}",
-                    port: 22,
-                    user: "${EC2_USER}",
-                    credentialsId: "dashkey",  // Jenkins에 등록한 SSH 자격증명 ID
-                    allowAnyHosts: true
-                ], command: "echo 'SSH connection successful'"
-            }
-        }
         stage('Deploy to EC2') {
             steps {
                 sshCommand remote: [
@@ -64,7 +51,7 @@ pipeline {
                     host: "${EC2_HOST}",
                     port: 22,
                     user: "${EC2_USER}",
-                    credentialsId: "dashkey",
+                    credentialsId: "ec2-ssh-key",  // Jenkins에 등록한 EC2용 SSH 자격증명 ID (공개키가 EC2의 authorized_keys에 등록되어 있어야 함)
                     allowAnyHosts: true
                 ], command: '''
                     echo "Pulling the latest image..."
