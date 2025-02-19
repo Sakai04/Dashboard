@@ -49,6 +49,8 @@ pipeline {
                     def deployCommand = """
                         mkdir -p ${PROJECT_DIR}  # 디렉토리가 없으면 생성
                         cd ${PROJECT_DIR}
+                        ls -l  # 파일 목록 확인 (디버깅용)
+                        cat docker-compose.yml  # 파일 내용 확인 (디버깅용)
                         docker-compose pull
                         docker-compose up -d --remove-orphans
                     """.stripIndent()
@@ -56,15 +58,15 @@ pipeline {
                     sshPublisher(
                         publishers: [
                             sshPublisherDesc(
-                                configName: 'EC2_Instance', // Jenkins의 Publish Over SSH 설정 사용
+                                configName: 'EC2_Instance',
                                 transfers: [
-                                    // 프로젝트 코드 전송 (Jenkins 작업공간에서 EC2로 복사)
+                                    // 🔹 **프로젝트 전체 전송**
                                     sshTransfer(
                                         sourceFiles: '**',
-                                        removePrefix: '',  // 모든 파일을 EC2의 PROJECT_DIR로 복사
+                                        removePrefix: '',
                                         remoteDirectory: PROJECT_DIR
                                     ),
-                                    // 배포 스크립트 실행
+                                    // 🔹 **배포 명령 실행**
                                     sshTransfer(
                                         sourceFiles: '',
                                         execCommand: deployCommand
