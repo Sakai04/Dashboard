@@ -54,7 +54,6 @@ pipeline {
                     name: "EC2_Instance",
                     host: "${EC2_HOST}",
                     port: 22,
-                    user: "${EC2_USER}",
                     credentialsId: "dash_key",  // EC2용 SSH 자격증명 ID (authorized_keys에 공개키 등록 필요)
                     allowAnyHosts: true
                 ], command: '''
