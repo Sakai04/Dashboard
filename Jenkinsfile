@@ -8,7 +8,7 @@ pipeline {
         IMAGE_TAG = "latest"
         ECR_URL = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         // EC2 관련 설정
-        EC2_HOST = "your.ec2.public.ip.or.dns"  // 실제 EC2 인스턴스의 퍼블릭 IP 또는 DNS
+        EC2_HOST = "3.34.44.0"  // 실제 EC2 인스턴스의 퍼블릭 IP 또는 DNS
         EC2_USER = "ec2-user"  // Amazon Linux2의 기본 사용자 (환경에 따라 변경)
     }
 
