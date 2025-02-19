@@ -7,8 +7,8 @@ pipeline {
         ECR_REPO       = "dashback"
         IMAGE_TAG      = "latest"
         ECR_URL        = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        EC2_HOST       = "3.34.44.0"   // 실제 EC2 인스턴스의 퍼블릭 IP 또는 DNS
-        EC2_USER       = "ec2-user"     // EC2 인스턴스의 사용자 이름
+        EC2_HOST       = "3.34.44.0"    // 실제 EC2 인스턴스의 퍼블릭 IP 또는 DNS
+        EC2_USER       = "ec2-user"      // EC2 인스턴스의 사용자 이름
     }
 
     stages {
@@ -50,8 +50,8 @@ pipeline {
                     name: "EC2_Instance",
                     host: "${EC2_HOST}",
                     port: 22,
-                    user: "${EC2_USER}",          // 반드시 명시적으로 사용자 지정
-                    credentialsId: "dash_key",      // 자격 증명 ID
+                    user: "${EC2_USER}",           // 반드시 명시적으로 지정
+                    credentialsId: "dash_key",       // Jenkins 자격 증명 ID
                     allowAnyHosts: true
                 ], command: '''
                     # 1) ec2-user에 대해 비밀번호 없이 sudo 허용
@@ -68,7 +68,7 @@ pipeline {
                     name: "EC2_Instance",
                     host: "${EC2_HOST}",
                     port: 22,
-                    user: "${EC2_USER}",          // 반드시 명시적으로 사용자 지정
+                    user: "${EC2_USER}",
                     credentialsId: "dash_key",
                     allowAnyHosts: true
                 ], command: '''
