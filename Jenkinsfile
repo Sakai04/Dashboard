@@ -74,7 +74,7 @@ pipeline {
                                 configName: 'EC2_Instance',
                                 transfers: [
                                     sshTransfer(
-                                        sourceFiles: '**',
+                                        sourceFiles: '**', // docker-compose.yml 포함
                                         removePrefix: '',
                                         remoteDirectory: PROJECT_DIR,
                                         remoteDirectorySDF: false
@@ -93,15 +93,19 @@ pipeline {
                 script {
                     def deployCommand = """
                         cd ${PROJECT_DIR}
-                        echo "=== Debug: List files in ${PROJECT_DIR} ==="
-                        ls -l
-                        echo "=== Show docker-compose.yml content ==="
-                        cat docker-compose.yml
+                        if [ -f docker-compose.yml ]; then
+                            echo "=== Debug: List files in ${PROJECT_DIR} ==="
+                            ls -l
+                            echo "=== Show docker-compose.yml content ==="
+                            cat docker-compose.yml
 
-                        echo "=== Pulling latest images ==="
-                        docker-compose pull
-                        echo "=== Starting containers ==="
-                        docker-compose up -d
+                            echo "=== Pulling latest images ==="
+                            docker-compose pull
+                            echo "=== Starting containers ==="
+                            docker-compose up -d
+                        else
+                            echo "docker-compose.yml not found."
+                        fi
                     """.stripIndent()
 
                     sshPublisher(
