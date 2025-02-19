@@ -1,46 +1,67 @@
 version: '3.8'
 
 services:
+  # ====================== PostgreSQL 서비스 ======================
   db:
-    image: postgres:15  # latest 대신 특정 버전 명시
+    image: postgres:15
     container_name: mypostgres
     environment:
-      POSTGRES_USER: ${DB_USER}  # Jenkins에서 주입
+      POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
+      SSL_CERT_FILE: /etc/postgresql/certs/server.crt    # SSL 인증서 경로
+      SSL_KEY_FILE: /etc/postgresql/certs/server.key
+      SSL_CA_FILE: /etc/postgresql/certs/ca.crt
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres/certs:/etc/postgresql/certs:ro        # 인증서 볼륨 마운트
     networks:
       - app-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]  # DB명 추가
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} -h localhost -p 5432"] # SSL 로컬 체크
       interval: 10s
       timeout: 5s
       retries: 5
+    command:
+      - "postgres"
+      - "-c"
+      - "ssl=on"                                         # SSL 강제 활성화
+      - "-c"
+      - "ssl_cert_file=$$SSL_CERT_FILE"
+      - "-c"
+      - "ssl_key_file=$$SSL_KEY_FILE"
 
+  # ====================== FastAPI 애플리케이션 ======================
   app:
-    image: ${ECR_URL}/dashback:latest  # ECR 이미지 사용
+    image: ${ECR_URL}/dashback:latest
     container_name: fastapi_app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?ssl=verify-full&sslrootcert=/app/certs/ca.crt" # SSL 검증 추가
+    volumes:
+      - ./postgres/certs/ca.crt:/app/certs/ca.crt:ro    # CA 인증서 공유
     networks:
       - app-network
     depends_on:
       db:
         condition: service_healthy
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?ssl=require  # SSL 옵션 추가
 
+  # ====================== pgAdmin ======================
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: mypgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./postgres/certs/ca.crt:/ca.crt:ro              # pgAdmin에서 CA 인증서 사용
     networks:
       - app-network
-    depends_on:
-      - db
+    ports:
+      - "8080:80"
 
+# ====================== 공통 설정 ======================
 networks:
   app-network:
     driver: bridge
