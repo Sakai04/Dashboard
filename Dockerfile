@@ -1,22 +1,25 @@
-FROM  python:3.13
+# Base image
+FROM python:3.11
 
-
-# 환경변수 설정: 바이트코드 생성 방지 및 stdout 바로 출력
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-# 작업 디렉터리 설정
+# Set the working directory
 WORKDIR /app
 
-# 의존성 파일 복사 및 설치
-COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+# Install curl
+RUN apt-get update && apt-get install -y curl
 
-# 프로젝트 전체 복사
+
+# Copy requirements.txt into the container
+COPY requirements.txt /app/requirements.txt
+
+# Install dependencies
+RUN pip install --upgrade pip
+RUN pip install --no-cache-dir -r /app/requirements.txt
+RUN pip install --no-cache-dir docker
+
+# Copy the rest of the application code into the container
 COPY . .
 
-# 컨테이너가 노출할 포트 (FastAPI 기본ㅇ 포트)
+# Expose the port FastAPI will run on
 EXPOSE 8000
 
-# 애플리케이션 실행 (production 환경에서는 --reload 옵션 없이 실행)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Command to run the FastAPI server

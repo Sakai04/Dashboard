@@ -1,170 +1,85 @@
 pipeline {
     agent any
 
-    tools {
-        git 'Default'  // Global Tool Configuration에 등록한 Git 툴 이름
-    }
-
     environment {
-        // AWS 설정
         AWS_ACCOUNT_ID = "296062584049"
         AWS_REGION     = "ap-northeast-2"
         ECR_REPO       = "dashback"
         IMAGE_TAG      = "latest"
         ECR_URL        = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        PROJECT_DIR    = "/home/ec2-user/project"
-
-        // Credentials 주입
-        DB_USER        = credentials('DB_USER')
-        DB_PASSWORD    = credentials('DB_PASSWORD')
-        DB_NAME        = credentials('DB_NAME')
-        PGADMIN_EMAIL  = credentials('PGADMIN_EMAIL')
-        PGADMIN_PASS   = credentials('PGADMIN_PASSWORD')
-
-        // Git 경로 강제 지정
-        PATH = "/usr/bin/git:$PATH"
+        // EC2 접속 정보는 Jenkins의 Publish Over SSH 설정에 등록된 'EC2_Instance'를 사용합니다.
     }
 
     stages {
-        stage('Checkout SCM') {
+        stage('Checkout') {
             steps {
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: '*/master']],
-                    extensions: [],
-                    userRemoteConfigs: [[url: 'https://github.com/Sakai04/Dashboard']]
-                ])
+                checkout scm
             }
         }
-
-        stage('Debug Git Setup') {
-            steps {
-                sh '''
-                    echo "=== Git 설치 확인 ==="
-                    which git
-                    git --version
-                    echo "PATH: $PATH"
-                '''
-            }
-        }
-
-        stage('Docker Build & Push') {
+        stage('Docker Build') {
             steps {
                 script {
-                    dockerImage = docker.build(
-                        "${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}",
-                        "--platform=linux/amd64 --build-arg DB_USER=\${DB_USER} --build-arg DB_PASSWORD=\${DB_PASSWORD} ."
-                    )
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
-                        sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URL}"
-                        dockerImage.push()
-                    }
+                    // t2.micro (x86_64) 인스턴스에 맞게 --platform 옵션 추가
+                    dockerImage = docker.build("${ECR_URL}/${ECR_REPO}:${IMAGE_TAG}", "--platform=linux/amd64 -f Dockerfile .")
                 }
             }
         }
-
-        stage('Prepare Config Files') {
+        stage('Docker Login to ECR') {
             steps {
-                sh '''
-                    # docker-compose-prod.yml 생성
-                    cat <<EOD > docker-compose-prod.yml
-                    version: '3.8'
-
-                    services:
-                      db:
-                        image: postgres:15
-                        container_name: prod-db
-                        env_file: .env
-                        volumes:
-                          - pg_data:/var/lib/postgresql/data
-                        networks:
-                          - app-net
-                        healthcheck:
-                          test: ["CMD-SHELL", "pg_isready -U \${POSTGRES_USER} -d \${POSTGRES_DB}"]
-                          interval: 10s
-                          timeout: 5s
-                          retries: 5
-
-                      app:
-                        image: \${ECR_URL}/dashback:latest
-                        container_name: prod-app
-                        env_file: .env
-                        depends_on:
-                          db:
-                            condition: service_healthy
-                        networks:
-                          - app-net
-                        ports:
-                          - "8000:8000"
-
-                      pgadmin:
-                        image: dpage/pgadmin4:latest
-                        container_name: prod-pgadmin
-                        env_file: .env
-                        depends_on:
-                          - db
-                        ports:
-                          - "8080:80"
-
-                    networks:
-                      app-net:
-                        driver: bridge
-
-                    volumes:
-                      pg_data:
-                    EOD
-
-                    # .env 파일 생성
-                    cat <<EOF > .env
-                    POSTGRES_USER=\${DB_USER}
-                    POSTGRES_PASSWORD=\${DB_PASSWORD}
-                    POSTGRES_DB=\${DB_NAME}
-                    PGADMIN_DEFAULT_EMAIL=\${PGADMIN_EMAIL}
-                    PGADMIN_DEFAULT_PASSWORD=\${PGADMIN_PASS}
-                    DATABASE_URL=postgresql+asyncpg://\${DB_USER}:\${DB_PASSWORD}@db:5432/\${DB_NAME}?ssl=require
-                    ECR_URL=\${ECR_URL}
-                    EOF
-                '''
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-credentials'
+                ]]) {
+                    sh '''
+                        aws ecr get-login-password --region ${AWS_REGION} \
+                          | docker login --username AWS --password-stdin ${ECR_URL}
+                    '''
+                }
             }
         }
-
-        stage('Deploy to EC2') {
+        stage('Docker Push') {
             steps {
-                sshPublisher(
-                    publishers: [
-                        sshPublisherDesc(
-                            configName: 'EC2_Instance',
-                            transfers: [
-                                sshTransfer(
-                                    sourceFiles: 'docker-compose-prod.yml, .env',
-                                    removePrefix: '',
-                                    remoteDirectory: PROJECT_DIR,
-                                    execCommand: """
-                                        #!/bin/bash
-                                        cd ${PROJECT_DIR}
-                                        export COMPOSE_PROJECT_NAME=dashboard_prod
-                                        docker-compose -f docker-compose-prod.yml down --remove-orphans
-                                        docker-compose -f docker-compose-prod.yml pull
-                                        docker-compose -f docker-compose-prod.yml up -d
-                                        docker ps -a
-                                        docker logs prod-app
-                                    """
-                                )
-                            ],
-                            verbose: true
-                        )
-                    ]
-                )
+                script {
+                    dockerImage.push()
+                }
+            }
+        }
+        stage('Deploy via Docker Compose on EC2') {
+            steps {
+                script {
+                    // 프로젝트 전체가 배포된 경로를 지정합니다.
+                    def composeDirectory = "/home/ec2-user/project"
+
+                    def deployCommand = """
+                        cd ${composeDirectory}
+                        docker-compose pull
+                        docker-compose up -d --remove-orphans
+                    """.stripIndent()
+
+                    sshPublisher(
+                        publishers: [
+                            sshPublisherDesc(
+                                configName: 'EC2_Instance',  // Jenkins에 등록된 EC2 접속 설정 이름
+                                transfers: [
+                                    sshTransfer(
+                                        sourceFiles: '',  // 파일 전송은 필요 없음
+                                        execCommand: deployCommand
+                                    )
+                                ],
+                                verbose: true
+                            )
+                        ]
+                    )
+                }
             }
         }
     }
-
     post {
-        always {
-            cleanWs()
+        success {
+            echo "Deployment via Docker Compose completed successfully."
         }
         failure {
-            slackSend channel: '#deploy-alerts', message: "Build Failed - ${env.JOB_NAME} ${env.BUILD_NUMBER}"
+            echo "Deployment failed."
         }
     }
 }
