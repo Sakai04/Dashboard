@@ -12,7 +12,7 @@ app = FastAPI(title="Backend API for BoardPost")
 # CORS 미들웨어 추가: React 앱이 실행되는 도메인을 명시하거나, 모든 도메인을 허용할 수 있습니다.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # React 개발 서버가 기본적으로 이 주소에서 실행됩니다.
+    allow_origins=["http://3.34.86.207"],  # React 개발 서버가 기본적으로 이 주소에서 실행됩니다.
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
