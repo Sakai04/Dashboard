@@ -2,11 +2,11 @@ pipeline {
     agent any
 
     environment {
-        AWS_ACCOUNT_ID = "296062584049"
-        AWS_REGION     = "ap-northeast-2"
-        ECR_REPO       = "dashback"
-        IMAGE_TAG      = "latest"
-        ECR_URL        = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        AWS_ACCOUNT_ID = ""
+        AWS_REGION     = "
+        ECR_REPO       = "
+        IMAGE_TAG      = "
+        ECR_URL        = "
         // EC2 접속 정보는 Jenkins의 Publish Over SSH 설정에 등록된 'EC2_Instance'를 사용합니다.
     }
 
