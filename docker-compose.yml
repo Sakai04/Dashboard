@@ -5,9 +5,9 @@ services:
     image: postgres:latest
     container_name: mypostgres
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=0684
-      - POSTGRES_DB=dashboard
+      - POSTGRES_USER=
+      - POSTGRES_PASSWORD=
+      - POSTGRES_DB=
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -29,14 +29,14 @@ services:
       db:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:0684@db:5432/dashboard
+      - DATABASE_URL=
 
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: mypgadmin
     environment:
-      - PGADMIN_DEFAULT_EMAIL=pxj0684@gmail.com
-      - PGADMIN_DEFAULT_PASSWORD=0684
+      - PGADMIN_DEFAULT_EMAIL=
+      - PGADMIN_DEFAULT_PASSWORD=
     ports:
       - "80:80"
     volumes:
