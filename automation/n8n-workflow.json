@@ -56,7 +56,7 @@
     },
     {
       "parameters": {
-        "functionCode": "// Dashboard FastAPI 프로젝트 특화 커밋 분석기\n\nconst payload = $input.first().json;\nconst commits = payload.commits || [];\nconst repository = payload.repository;\nconst pusher = payload.pusher;\nconst ref = payload.ref;\n\nconst results = [];\n\nfor (const commit of commits) {\n  // 기본 정보 추출\n  const commitData = {\n    title: commit.message.split('\\n')[0].substring(0, 100),\n    commit_hash: commit.id.substring(0, 8),\n    full_hash: commit.id,\n    author: commit.author.name,\n    email: commit.author.email,\n    date: commit.timestamp,\n    repository: repository.full_name,\n    branch: ref.replace('refs/heads/', ''),\n    url: commit.url,\n    files_changed: commit.added.length + commit.removed.length + commit.modified.length,\n    lines_added: 0, // GitHub webhook doesn't provide this, will be fetched separately\n    lines_deleted: 0,\n    description: commit.message\n  };\n\n  // Dashboard 프로젝트 특화 파일 분석\n  const changedFiles = [...commit.added, ...commit.removed, ...commit.modified];\n  \n  // 우선순위 계산\n  let priorityScore = 0;\n  let categories = [];\n  let cicdStatus = 'Pending';\n  \n  // 보안 관련 파일 (최고 우선순위)\n  const securityFiles = ['.env', 'requirements.txt', 'Dockerfile', 'docker-compose.yml'];\n  if (changedFiles.some(file => securityFiles.some(secFile => file.includes(secFile)))) {\n    priorityScore += 100;\n    categories.push('Security', 'Configuration');\n  }\n  \n  // CI/CD 관련 파일\n  if (changedFiles.some(file => file.includes('Jenkinsfile') || file.includes('docker'))) {\n    priorityScore += 90;\n    categories.push('CI/CD');\n    cicdStatus = 'Building';\n  }\n  \n  // API 개발 관련 파일\n  if (changedFiles.some(file => file.includes('app/routers/') || file.includes('app/main.py'))) {\n    priorityScore += 80;\n    categories.push('API Development');\n  }\n  \n  // 데이터베이스 관련 파일\n  if (changedFiles.some(file => file.includes('app/models/') || file.includes('database.py'))) {\n    priorityScore += 60;\n    categories.push('Database');\n  }\n  \n  // 스키마 관련 파일\n  if (changedFiles.some(file => file.includes('app/schemas/'))) {\n    priorityScore += 50;\n    categories.push('API Development');\n  }\n  \n  // CRUD 관련 파일\n  if (changedFiles.some(file => file.includes('app/crud/'))) {\n    priorityScore += 40;\n    categories.push('Database');\n  }\n  \n  // 문서 관련 파일\n  if (changedFiles.some(file => file.includes('README.md') || file.includes('docs/'))) {\n    priorityScore += 10;\n    categories.push('Documentation');\n  }\n  \n  // 테스트 파일\n  if (changedFiles.some(file => file.includes('test') || file.includes('spec'))) {\n    priorityScore += 30;\n    categories.push('Testing');\n  }\n  \n  // 커밋 메시지 키워드 분석\n  const message = commit.message.toLowerCase();\n  const highPriorityKeywords = ['fix', 'security', 'urgent', 'hotfix', 'critical', 'bug'];\n  const featureKeywords = ['feat', 'feature', 'add', 'new'];\n  const refactorKeywords = ['refactor', 'refactoring', 'cleanup', 'improve'];\n  \n  if (highPriorityKeywords.some(keyword => message.includes(keyword))) {\n    priorityScore += 70;\n    categories.push('Bug Fix');\n  } else if (featureKeywords.some(keyword => message.includes(keyword))) {\n    priorityScore += 50;\n    categories.push('Feature');\n  } else if (refactorKeywords.some(keyword => message.includes(keyword))) {\n    priorityScore += 30;\n    categories.push('Refactoring');\n  }\n  \n  // 우선순위 레벨 결정\n  let priority;\n  if (priorityScore >= 100) {\n    priority = 'Critical';\n  } else if (priorityScore >= 70) {\n    priority = 'High';\n  } else if (priorityScore >= 40) {\n    priority = 'Medium';\n  } else {\n    priority = 'Low';\n  }\n  \n  // 상태 결정\n  let status;\n  if (priority === 'Critical') {\n    status = 'Review Required';\n  } else if (changedFiles.some(file => file.includes('Jenkinsfile'))) {\n    status = 'Pending';\n  } else {\n    status = 'Completed';\n  }\n  \n  // 카테고리 중복 제거\n  categories = [...new Set(categories)];\n  if (categories.length === 0) {\n    categories = ['General'];\n  }\n  \n  // 최종 데이터 구성\n  const finalData = {\n    ...commitData,\n    priority: priority,\n    status: status,\n    categories: categories,\n    priority_score: priorityScore,\n    cicd_status: cicdStatus,\n    changed_files: changedFiles,\n    security_related: securityFiles.some(secFile => \n      changedFiles.some(file => file.includes(secFile))\n    ),\n    api_related: changedFiles.some(file => \n      file.includes('app/routers/') || file.includes('app/main.py')\n    ),\n    database_related: changedFiles.some(file => \n      file.includes('app/models/') || file.includes('database.py')\n    )\n  };\n  \n  results.push(finalData);\n}\n\nreturn results.map(item => ({ json: item }));"
+        "functionCode": "const payload = $input.first().json;\nconst commits = payload.commits || [];\nconst repository = payload.repository;\nconst pusher = payload.pusher;\nconst ref = payload.ref;\n\nconst results = [];\n\nfor (const commit of commits) {\n  const commitData = {\n    title: commit.message.split('\\n')[0].substring(0, 100),\n    commit_hash: commit.id.substring(0, 8),\n    full_hash: commit.id,\n    author: commit.author.name,\n    email: commit.author.email,\n    date: commit.timestamp,\n    repository: repository.full_name,\n    branch: ref.replace('refs/heads/', ''),\n    url: commit.url,\n    files_changed: commit.added.length + commit.removed.length + commit.modified.length,\n    lines_added: 0,\n    lines_deleted: 0,\n    description: commit.message\n  };\n\n  const changedFiles = [...commit.added, ...commit.removed, ...commit.modified];\n  \n  let priorityScore = 0;\n  let categories = [];\n  let cicdStatus = 'Pending';\n  \n  const securityFiles = ['.env', 'requirements.txt', 'Dockerfile', 'docker-compose.yml'];\n  if (changedFiles.some(file => securityFiles.some(secFile => file.includes(secFile)))) {\n    priorityScore += 100;\n    categories.push('Security', 'Configuration');\n  }\n  \n  if (changedFiles.some(file => file.includes('Jenkinsfile') || file.includes('docker'))) {\n    priorityScore += 90;\n    categories.push('CI/CD');\n    cicdStatus = 'Building';\n  }\n  \n  if (changedFiles.some(file => file.includes('app/routers/') || file.includes('app/main.py'))) {\n    priorityScore += 80;\n    categories.push('API Development');\n  }\n  \n  if (changedFiles.some(file => file.includes('app/models/') || file.includes('database.py'))) {\n    priorityScore += 60;\n    categories.push('Database');\n  }\n  \n  if (changedFiles.some(file => file.includes('app/schemas/'))) {\n    priorityScore += 50;\n    categories.push('API Development');\n  }\n  \n  if (changedFiles.some(file => file.includes('app/crud/'))) {\n    priorityScore += 40;\n    categories.push('Database');\n  }\n  \n  if (changedFiles.some(file => file.includes('README.md') || file.includes('docs/'))) {\n    priorityScore += 10;\n    categories.push('Documentation');\n  }\n  \n  if (changedFiles.some(file => file.includes('test') || file.includes('spec'))) {\n    priorityScore += 30;\n    categories.push('Testing');\n  }\n  \n  const message = commit.message.toLowerCase();\n  const highPriorityKeywords = ['fix', 'security', 'urgent', 'hotfix', 'critical', 'bug'];\n  const featureKeywords = ['feat', 'feature', 'add', 'new'];\n  const refactorKeywords = ['refactor', 'refactoring', 'cleanup', 'improve'];\n  \n  if (highPriorityKeywords.some(keyword => message.includes(keyword))) {\n    priorityScore += 70;\n    categories.push('Bug Fix');\n  } else if (featureKeywords.some(keyword => message.includes(keyword))) {\n    priorityScore += 50;\n    categories.push('Feature');\n  } else if (refactorKeywords.some(keyword => message.includes(keyword))) {\n    priorityScore += 30;\n    categories.push('Refactoring');\n  }\n  \n  let priority;\n  if (priorityScore >= 100) {\n    priority = 'Critical';\n  } else if (priorityScore >= 70) {\n    priority = 'High';\n  } else if (priorityScore >= 40) {\n    priority = 'Medium';\n  } else {\n    priority = 'Low';\n  }\n  \n  let status;\n  if (priority === 'Critical') {\n    status = 'Review Required';\n  } else if (changedFiles.some(file => file.includes('Jenkinsfile'))) {\n    status = 'Pending';\n  } else {\n    status = 'Completed';\n  }\n  \n  categories = [...new Set(categories)];\n  if (categories.length === 0) {\n    categories = ['General'];\n  }\n  \n  const finalData = {\n    ...commitData,\n    priority: priority,\n    status: status,\n    categories: categories,\n    priority_score: priorityScore,\n    cicd_status: cicdStatus,\n    changed_files: changedFiles,\n    security_related: securityFiles.some(secFile => \n      changedFiles.some(file => file.includes(secFile))\n    ),\n    api_related: changedFiles.some(file => \n      file.includes('app/routers/') || file.includes('app/main.py')\n    ),\n    database_related: changedFiles.some(file => \n      file.includes('app/models/') || file.includes('database.py')\n    )\n  };\n  \n  results.push(finalData);\n}\n\nreturn results.map(item => ({ json: item }));"
       },
       "id": "analyze-commits",
       "name": "Analyze Dashboard Commits",
@@ -119,4 +119,158 @@
             {
               "key": "CI/CD Status",
               "selectValue": "={{$json.cicd_status}}"
-            }\n          ]\n        }\n      },\n      \"id\": \"create-notion-page\",\n      \"name\": \"Create Notion Page\",\n      \"type\": \"n8n-nodes-base.notion\",\n      \"typeVersion\": 2,\n      \"position\": [1120, 200],\n      \"credentials\": {\n        \"notionApi\": {\n          \"id\": \"dashboard-notion\",\n          \"name\": \"Dashboard Notion\"\n        }\n      }\n    },\n    {\n      \"parameters\": {\n        \"conditions\": {\n          \"boolean\": [\n            {\n              \"value1\": \"={{$json.security_related}}\",\n              \"value2\": true\n            }\n          ]\n        }\n      },\n      \"id\": \"check-security\",\n      \"name\": \"Check Security Changes\",\n      \"type\": \"n8n-nodes-base.if\",\n      \"typeVersion\": 1,\n      \"position\": [1340, 200]\n    },\n    {\n      \"parameters\": {\n        \"functionCode\": \"// 보안 알림 메시지 생성\\nconst data = $input.first().json;\\n\\nconst alertMessage = {\\n  text: `🚨 보안 관련 커밋 감지 - Dashboard 프로젝트`,\\n  blocks: [\\n    {\\n      \\\"type\\\": \\\"header\\\",\\n      \\\"text\\\": {\\n        \\\"type\\\": \\\"plain_text\\\",\\n        \\\"text\\\": \\\"🔐 보안 관련 변경사항 알림\\\"\\n      }\\n    },\\n    {\\n      \\\"type\\\": \\\"section\\\",\\n      \\\"fields\\\": [\\n        {\\n          \\\"type\\\": \\\"mrkdwn\\\",\\n          \\\"text\\\": `*커밋:* ${data.commit_hash}`\\n        },\\n        {\\n          \\\"type\\\": \\\"mrkdwn\\\",\\n          \\\"text\\\": `*작성자:* ${data.author}`\\n        },\\n        {\\n          \\\"type\\\": \\\"mrkdwn\\\",\\n          \\\"text\\\": `*브랜치:* ${data.branch}`\\n        },\\n        {\\n          \\\"type\\\": \\\"mrkdwn\\\",\\n          \\\"text\\\": `*우선순위:* ${data.priority}`\\n        }\\n      ]\\n    },\\n    {\\n      \\\"type\\\": \\\"section\\\",\\n      \\\"text\\\": {\\n        \\\"type\\\": \\\"mrkdwn\\\",\\n        \\\"text\\\": `*메시지:* ${data.title}\\\\n*변경된 파일:* ${data.files_changed}개`\\n      }\\n    },\\n    {\\n      \\\"type\\\": \\\"actions\\\",\\n      \\\"elements\\\": [\\n        {\\n          \\\"type\\\": \\\"button\\\",\\n          \\\"text\\\": {\\n            \\\"type\\\": \\\"plain_text\\\",\\n            \\\"text\\\": \\\"GitHub에서 확인\\\"\\n          },\\n          \\\"url\\\": data.url\\n        }\\n      ]\\n    }\\n  ]\\n};\\n\\nreturn { json: alertMessage };\"\n      },\n      \"id\": \"format-security-alert\",\n      \"name\": \"Format Security Alert\",\n      \"type\": \"n8n-nodes-base.function\",\n      \"typeVersion\": 1,\n      \"position\": [1560, 120]\n    },\n    {\n      \"parameters\": {\n        \"url\": \"={{$env.SLACK_WEBHOOK_URL}}\",\n        \"sendHeaders\": true,\n        \"headerParameters\": {\n          \"parameters\": [\n            {\n              \"name\": \"Content-Type\",\n              \"value\": \"application/json\"\n            }\n          ]\n        },\n        \"sendBody\": true,\n        \"bodyParameters\": {\n          \"parameters\": [\n            {\n              \"name\": \"payload\",\n              \"value\": \"={{JSON.stringify($json)}}\"\n            }\n          ]\n        }\n      },\n      \"id\": \"send-slack-alert\",\n      \"name\": \"Send Slack Alert\",\n      \"type\": \"n8n-nodes-base.httpRequest\",\n      \"typeVersion\": 4.1,\n      \"position\": [1780, 120]\n    },\n    {\n      \"parameters\": {\n        \"owner\": \"Sakai04\",\n        \"repository\": \"Dashboard\",\n        \"sha\": \"={{$json.full_hash}}\"\n      },\n      \"id\": \"get-commit-details\",\n      \"name\": \"Get Commit Details\",\n      \"type\": \"n8n-nodes-base.github\",\n      \"typeVersion\": 1,\n      \"position\": [1120, 400],\n      \"credentials\": {\n        \"githubApi\": {\n          \"id\": \"dashboard-github\",\n          \"name\": \"Dashboard GitHub\"\n        }\n      }\n    },\n    {\n      \"parameters\": {\n        \"functionCode\": \"// GitHub API 응답에서 상세 정보 추출\\nconst commitData = $input.first().json;\\nconst originalData = $('Analyze Dashboard Commits').first().json;\\n\\n// 통계 정보 업데이트\\nconst stats = commitData.stats || {};\\nconst updatedData = {\\n  ...originalData,\\n  lines_added: stats.additions || 0,\\n  lines_deleted: stats.deletions || 0,\\n  total_changes: stats.total || 0,\\n  files_detailed: commitData.files || []\\n};\\n\\n// 파일별 상세 분석\\nconst fileAnalysis = [];\\nif (commitData.files) {\\n  for (const file of commitData.files) {\\n    fileAnalysis.push({\\n      filename: file.filename,\\n      status: file.status,\\n      additions: file.additions,\\n      deletions: file.deletions,\\n      changes: file.changes,\\n      patch: file.patch ? file.patch.substring(0, 500) : ''\\n    });\\n  }\\n}\\n\\nupdatedData.file_analysis = fileAnalysis;\\n\\nreturn { json: updatedData };\"\n      },\n      \"id\": \"process-commit-details\",\n      \"name\": \"Process Commit Details\",\n      \"type\": \"n8n-nodes-base.function\",\n      \"typeVersion\": 1,\n      \"position\": [1340, 400]\n    },\n    {\n      \"parameters\": {\n        \"resource\": \"databasePage\",\n        \"operation\": \"update\",\n        \"pageId\": \"={{$('Create Notion Page').first().json.id}}\",\n        \"propertiesUi\": {\n          \"propertyValues\": [\n            {\n              \"key\": \"Lines Added\",\n              \"numberValue\": \"={{$json.lines_added}}\"\n            },\n            {\n              \"key\": \"Lines Deleted\",\n              \"numberValue\": \"={{$json.lines_deleted}}\"\n            }\n          ]\n        }\n      },\n      \"id\": \"update-notion-stats\",\n      \"name\": \"Update Notion Stats\",\n      \"type\": \"n8n-nodes-base.notion\",\n      \"typeVersion\": 2,\n      \"position\": [1560, 400],\n      \"credentials\": {\n        \"notionApi\": {\n          \"id\": \"dashboard-notion\",\n          \"name\": \"Dashboard Notion\"\n        }\n      }\n    },\n    {\n      \"parameters\": {\n        \"conditions\": {\n          \"boolean\": [\n            {\n              \"value1\": \"={{$json.api_related}}\",\n              \"value2\": true\n            }\n          ]\n        }\n      },\n      \"id\": \"check-api-changes\",\n      \"name\": \"Check API Changes\",\n      \"type\": \"n8n-nodes-base.if\",\n      \"typeVersion\": 1,\n      \"position\": [1780, 400]\n    },\n    {\n      \"parameters\": {\n        \"functionCode\": \"// API 변경사항에 대한 자동 문서 업데이트 알림\\nconst data = $input.first().json;\\n\\nconst notification = {\\n  type: 'api_change',\\n  commit: data.commit_hash,\\n  author: data.author,\\n  message: data.title,\\n  files: data.changed_files.filter(file => \\n    file.includes('app/routers/') || file.includes('app/main.py')\\n  ),\\n  priority: data.priority,\\n  action_required: 'API 문서 업데이트 검토 필요'\\n};\\n\\nreturn { json: notification };\"\n      },\n      \"id\": \"api-change-notification\",\n      \"name\": \"API Change Notification\",\n      \"type\": \"n8n-nodes-base.function\",\n      \"typeVersion\": 1,\n      \"position\": [2000, 320]\n    },\n    {\n      \"parameters\": {\n        \"respondWith\": \"json\",\n        \"responseBody\": \"{\\n  \\\"status\\\": \\\"success\\\",\\n  \\\"message\\\": \\\"Webhook processed successfully\\\",\\n  \\\"processed_commits\\\": \\\"={{$('Analyze Dashboard Commits').all().length}}\\\",\\n  \\\"timestamp\\\": \\\"={{new Date().toISOString()}}\\\"\\n}\"\n      },\n      \"id\": \"webhook-response\",\n      \"name\": \"Webhook Response\",\n      \"type\": \"n8n-nodes-base.respondToWebhook\",\n      \"typeVersion\": 1,\n      \"position\": [680, 500]\n    },\n    {\n      \"parameters\": {\n        \"respondWith\": \"text\",\n        \"responseBody\": \"Ping received successfully\"\n      },\n      \"id\": \"ping-response\",\n      \"name\": \"Ping Response\",\n      \"type\": \"n8n-nodes-base.respondToWebhook\",\n      \"typeVersion\": 1,\n      \"position\": [460, 500]\n    }\n  ],\n  \"connections\": {\n    \"GitHub Webhook\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Filter Ping Events\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Filter Ping Events\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Filter Valid Branches\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ],\n        [\n          {\n            \"node\": \"Ping Response\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Filter Valid Branches\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Analyze Dashboard Commits\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ],\n        [\n          {\n            \"node\": \"Webhook Response\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Analyze Dashboard Commits\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Create Notion Page\",\n            \"type\": \"main\",\n            \"index\": 0\n          },\n          {\n            \"node\": \"Get Commit Details\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Create Notion Page\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Check Security Changes\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Check Security Changes\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Format Security Alert\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ],\n        []\n      ]\n    },\n    \"Format Security Alert\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Send Slack Alert\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Get Commit Details\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Process Commit Details\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Process Commit Details\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Update Notion Stats\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Update Notion Stats\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Check API Changes\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Check API Changes\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"API Change Notification\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ],\n        []\n      ]\n    }\n  },\n  \"active\": true,\n  \"settings\": {\n    \"timezone\": \"Asia/Seoul\",\n    \"saveManualExecutions\": true,\n    \"callerPolicy\": \"workflowOwner\",\n    \"executionOrder\": \"v1\"\n  },\n  \"versionId\": \"1\",\n  \"id\": \"dashboard-github-notion-tracker\",\n  \"name\": \"Dashboard GitHub to Notion Tracker\",\n  \"tags\": [\n    {\n      \"createdAt\": \"2024-01-15T00:00:00.000Z\",\n      \"updatedAt\": \"2024-01-15T00:00:00.000Z\",\n      \"id\": \"dashboard\",\n      \"name\": \"Dashboard Project\"\n    },\n    {\n      \"createdAt\": \"2024-01-15T00:00:00.000Z\",\n      \"updatedAt\": \"2024-01-15T00:00:00.000Z\",\n      \"id\": \"automation\",\n      \"name\": \"Automation\"\n    }\n  ],\n  \"triggerCount\": 1,\n  \"updatedAt\": \"2024-01-15T00:00:00.000Z\",\n  \"createdAt\": \"2024-01-15T00:00:00.000Z\"\n}"
+            }
+          ]
+        }
+      },
+      "id": "create-notion-page",
+      "name": "Create Notion Page",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2,
+      "position": [1120, 200],
+      "credentials": {
+        "notionApi": {
+          "id": "dashboard-notion",
+          "name": "Dashboard Notion"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.security_related}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-security",
+      "name": "Check Security Changes",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1340, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"success\",\n  \"message\": \"Webhook processed successfully\",\n  \"processed_commits\": \"={{$('Analyze Dashboard Commits').all().length}}\",\n  \"timestamp\": \"={{new Date().toISOString()}}\"\n}"
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [680, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Ping received successfully"
+      },
+      "id": "ping-response",
+      "name": "Ping Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [460, 500]
+    }
+  ],
+  "connections": {
+    "GitHub Webhook": {
+      "main": [
+        [
+          {
+            "node": "Filter Ping Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Ping Events": {
+      "main": [
+        [
+          {
+            "node": "Filter Valid Branches",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ping Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Valid Branches": {
+      "main": [
+        [
+          {
+            "node": "Analyze Dashboard Commits",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Dashboard Commits": {
+      "main": [
+        [
+          {
+            "node": "Create Notion Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Notion Page": {
+      "main": [
+        [
+          {
+            "node": "Check Security Changes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "timezone": "Asia/Seoul",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowOwner",
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "id": "dashboard-github-notion-tracker",
+  "name": "Dashboard GitHub to Notion Tracker",
+  "tags": [
+    {
+      "createdAt": "2024-01-15T00:00:00.000Z",
+      "updatedAt": "2024-01-15T00:00:00.000Z",
+      "id": "dashboard",
+      "name": "Dashboard Project"
+    },
+    {
+      "createdAt": "2024-01-15T00:00:00.000Z",
+      "updatedAt": "2024-01-15T00:00:00.000Z",
+      "id": "automation",
+      "name": "Automation"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-15T00:00:00.000Z",
+  "createdAt": "2024-01-15T00:00:00.000Z"
+}
