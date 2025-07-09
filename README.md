@@ -62,7 +62,53 @@ Dashboard는 FastAPI를 기반으로 한 간단하면서도 강력한 CRUD 백�
    ```
 
 ### 📚 자동화 설정
-자동화된 커밋 추적 시스템을 설정하려면 다음 가이드를 참조하세요:
+
+#### GitHub Actions 기반 Notion 커밋 트래커 (권장)
+현재 프로젝트는 GitHub Actions를 사용한 자동화된 커밋 추적 시스템을 지원합니다. 
+
+**필수 GitHub Secrets 설정:**
+
+1. **GitHub 저장소 → Settings → Secrets and variables → Actions**에서 다음 secrets을 추가하세요:
+
+   ```bash
+   # Notion 통합 설정
+   NOTION_TOKEN=secret_xxxxxxxxxxxxxxxxxxxxxxxxx
+   NOTION_DATABASE_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+   
+   # OpenAI 분석 (선택사항)
+   OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxx
+   ```
+
+2. **Notion 설정 방법:**
+   - [Notion Developers](https://www.notion.so/my-integrations)에서 새 통합 생성
+   - Integration Token을 `NOTION_TOKEN`으로 설정
+   - Notion에서 커밋 추적용 데이터베이스 생성
+   - 데이터베이스 ID를 `NOTION_DATABASE_ID`로 설정
+   - 생성한 Integration을 데이터베이스에 연결
+
+3. **데이터베이스 속성 (필수):**
+   ```
+   Name (제목) - Title
+   Commit Hash - Text
+   Author - Text  
+   Date - Date
+   Priority - Select (Critical, High, Medium, Low)
+   Status - Select (Completed, Pending, Review Required)
+   Categories - Multi-select
+   Priority Score - Number
+   Files Changed - Number
+   Security Related - Checkbox
+   API Related - Checkbox
+   Database Related - Checkbox
+   ```
+
+4. **자동 실행:** 
+   - `main`, `develop` 브랜치에 push 시 자동 실행
+   - PR 병합 시 자동 실행
+   - FastAPI 프로젝트 특화 분석 적용
+
+#### 기존 n8n 워크플로우 (레거시)
+기존 n8n 기반 설정을 원하는 경우:
 - **[완전한 설정 가이드](docs/github-notion-tracker.md)**: GitHub to Notion 통합 상세 설정 방법
 - **환경 변수**: `.env.example` 파일의 커밋 추적 관련 설정 참조
 
