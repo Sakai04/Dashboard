@@ -1,0 +1,78 @@
+name: Notion Commit Tracker
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - master
+  pull_request:
+    branches:
+      - main
+      - develop
+      - master
+    types: [opened, synchronize, closed]
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  track-commits:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history for commit analysis
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Install dependencies
+        run: |
+          cd .github/scripts
+          npm install
+          
+      - name: Analyze commits
+        id: analyze
+        run: |
+          cd .github/scripts
+          node commit-analyzer.js
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          
+      - name: Send to Notion
+        if: steps.analyze.outputs.commits_found == 'true'
+        run: |
+          cd .github/scripts
+          node notion-client.js
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Output results
+        if: always()
+        run: |
+          echo "=== Notion Commit Tracker Results ==="
+          if [ -f /tmp/commit-analysis.json ]; then
+            echo "Commits analyzed:"
+            cat /tmp/commit-analysis.json | jq '.[] | {title: .title, priority: .priority, categories: .categories}'
+          else
+            echo "No commits to analyze"
+          fi
+          
+          if [ -f /tmp/notion-results.json ]; then
+            echo "Notion updates:"
+            cat /tmp/notion-results.json
+          fi

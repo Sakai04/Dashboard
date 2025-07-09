@@ -62,7 +62,53 @@ Dashboard는 FastAPI를 기반으로 한 간단하면서도 강력한 CRUD 백�
    ```
 
 ### 📚 자동화 설정
-자동화된 커밋 추적 시스템을 설정하려면 다음 가이드를 참조하세요:
+
+#### GitHub Actions 기반 Notion 커밋 트래커 (권장)
+현재 프로젝트는 GitHub Actions를 사용한 자동화된 커밋 추적 시스템을 지원합니다. 
+
+**필수 GitHub Secrets 설정:**
+
+1. **GitHub 저장소 → Settings → Secrets and variables → Actions**에서 다음 secrets을 추가하세요:
+
+   ```bash
+   # Notion 통합 설정
+   NOTION_TOKEN=secret_xxxxxxxxxxxxxxxxxxxxxxxxx
+   NOTION_DATABASE_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+   
+   # OpenAI 분석 (선택사항)
+   OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxx
+   ```
+
+2. **Notion 설정 방법:**
+   - [Notion Developers](https://www.notion.so/my-integrations)에서 새 통합 생성
+   - Integration Token을 `NOTION_TOKEN`으로 설정
+   - Notion에서 커밋 추적용 데이터베이스 생성
+   - 데이터베이스 ID를 `NOTION_DATABASE_ID`로 설정
+   - 생성한 Integration을 데이터베이스에 연결
+
+3. **데이터베이스 속성 (필수):**
+   ```
+   Name (제목) - Title
+   Commit Hash - Text
+   Author - Text  
+   Date - Date
+   Priority - Select (Critical, High, Medium, Low)
+   Status - Select (Completed, Pending, Review Required)
+   Categories - Multi-select
+   Priority Score - Number
+   Files Changed - Number
+   Security Related - Checkbox
+   API Related - Checkbox
+   Database Related - Checkbox
+   ```
+
+4. **자동 실행:** 
+   - `main`, `develop` 브랜치에 push 시 자동 실행
+   - PR 병합 시 자동 실행
+   - FastAPI 프로젝트 특화 분석 적용
+
+#### 기존 n8n 워크플로우 (레거시)
+기존 n8n 기반 설정을 원하는 경우:
 - **[완전한 설정 가이드](docs/github-notion-tracker.md)**: GitHub to Notion 통합 상세 설정 방법
 - **환경 변수**: `.env.example` 파일의 커밋 추적 관련 설정 참조
 
@@ -77,13 +123,34 @@ Dashboard는 FastAPI를 기반으로 한 간단하면서도 강력한 CRUD 백�
 ### DevOps & Automation
 - **Docker**: 컨테이너화 기술
 - **Jenkins**: CI/CD 파이프라인
-- **n8n**: 워크플로우 자동화
+- **GitHub Actions**: 자동화된 커밋 추적 및 분석
 - **GitHub Webhooks**: 실시간 이벤트 처리
 
 ### Monitoring & Analytics
 - **Notion API**: 커밋 데이터 저장 및 시각화
-- **Slack/Discord**: 실시간 알림
+- **OpenAI GPT**: 지능형 커밋 분석 및 한국어 요약
+- **Slack/Discord**: 실시간 알림 (설정 가능)
 - **GitHub API**: 상세 커밋 정보 수집
+
+## 🚀 자동화 시스템 특징
+
+### 📊 지능형 커밋 분석
+- **우선순위 자동 계산**: 파일 변경 유형 및 커밋 메시지 기반 점수 산정
+- **카테고리 자동 분류**: Security, API Development, Database, CI/CD 등 자동 분류
+- **FastAPI 특화 감지**: `app/routers/`, `requirements.txt`, `Dockerfile` 등 핵심 파일 변경 감지
+- **위험도 평가**: 보안 관련 변경사항 우선 처리
+
+### 🤖 AI 기반 분석
+- **GPT 활용 분석**: 커밋 내용의 의미와 영향도 자동 분석
+- **한국어 요약**: 기술팀이 이해하기 쉬운 한국어 분석 결과 제공
+- **권장 조치**: 커밋 유형에 따른 후속 조치 자동 제안
+- **감성 분석**: 코드 변경의 긍정/부정 영향 평가
+
+### 📈 실시간 모니터링
+- **즉시 추적**: push 또는 PR 병합 시 자동 실행
+- **상세 로깅**: 모든 분석 과정과 결과를 상세 기록
+- **오류 처리**: 네트워크 이슈나 API 장애에 대한 견고한 처리
+- **멀티 브랜치**: main, develop 등 여러 브랜치 동시 지원
 
 ## API 엔드포인트
 

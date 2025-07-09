@@ -1,0 +1,22 @@
+{
+  "name": "github-notion-tracker",
+  "version": "1.0.0",
+  "description": "GitHub Actions scripts for Dashboard Notion commit tracking",
+  "main": "commit-analyzer.js",
+  "scripts": {
+    "analyze": "node commit-analyzer.js",
+    "notion": "node notion-client.js",
+    "test-ai": "node -e \"const AI = require('./ai-analyzer'); new AI().testConnection()\""
+  },
+  "dependencies": {
+    "@notionhq/client": "^2.2.15",
+    "@octokit/rest": "^20.0.2",
+    "openai": "^4.28.0",
+    "dotenv": "^16.3.1"
+  },
+  "author": "Dashboard Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
