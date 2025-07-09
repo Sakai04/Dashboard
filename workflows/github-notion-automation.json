@@ -1,0 +1,566 @@
+{
+  "name": "GitHub Commit to Notion Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "github-webhook",
+        "options": {
+          "noResponseBody": true
+        }
+      },
+      "id": "87bb52a4-1993-4be0-8a79-47b79b08dbff",
+      "name": "GitHub Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "a0b1c2d3-e4f5-6789-0123-456789abcdef"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "0d8f5436-eb39-4f9e-9d58-66ab4ba50d9d",
+              "leftValue": "={{ $json.commits?.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            },
+            {
+              "id": "b1c9e4f7-a3d2-4e8b-9f1c-6789def01234",
+              "leftValue": "={{ $json.ref }}",
+              "rightValue": "refs/heads/",
+              "operator": {
+                "type": "string",
+                "operation": "startsWith"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "d4e1a2b3-c5f6-7890-1234-567890abcdef",
+      "name": "Filter Push Events",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "12345678-90ab-cdef-1234-567890abcdef",
+              "name": "repository_name",
+              "value": "={{ $json.repository.name }}",
+              "type": "string"
+            },
+            {
+              "id": "23456789-01ab-cdef-2345-678901abcdef",
+              "name": "repository_full_name",
+              "value": "={{ $json.repository.full_name }}",
+              "type": "string"
+            },
+            {
+              "id": "34567890-12ab-cdef-3456-789012abcdef",
+              "name": "branch_name",
+              "value": "={{ $json.ref.replace('refs/heads/', '') }}",
+              "type": "string"
+            },
+            {
+              "id": "45678901-23ab-cdef-4567-890123abcdef",
+              "name": "pusher_name",
+              "value": "={{ $json.pusher.name }}",
+              "type": "string"
+            },
+            {
+              "id": "56789012-34ab-cdef-5678-901234abcdef",
+              "name": "commits",
+              "value": "={{ $json.commits }}",
+              "type": "array"
+            }
+          ]
+        }
+      },
+      "id": "e2f3b4c5-d6a7-8901-2345-678901abcdef",
+      "name": "Extract Basic Info",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fieldsToSplitOut": "commits",
+        "options": {}
+      },
+      "id": "f4g5h6i7-j8k9-l012-3456-789012abcdef",
+      "name": "Split Commits",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 3,
+      "position": [
+        840,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ab123456-7890-cdef-ab12-3456789abcde",
+              "name": "commit_hash",
+              "value": "={{ $json.commits.id }}",
+              "type": "string"
+            },
+            {
+              "id": "bc234567-8901-def0-bc23-456789abcdef",
+              "name": "commit_message",
+              "value": "={{ $json.commits.message }}",
+              "type": "string"
+            },
+            {
+              "id": "cd345678-9012-ef01-cd34-56789abcdef0",
+              "name": "commit_author",
+              "value": "={{ $json.commits.author.name }}",
+              "type": "string"
+            },
+            {
+              "id": "de456789-0123-f012-de45-6789abcdef01",
+              "name": "commit_email",
+              "value": "={{ $json.commits.author.email }}",
+              "type": "string"
+            },
+            {
+              "id": "ef567890-1234-0123-ef56-789abcdef012",
+              "name": "commit_timestamp",
+              "value": "={{ $json.commits.timestamp }}",
+              "type": "string"
+            },
+            {
+              "id": "f0678901-2345-1234-f067-89abcdef0123",
+              "name": "commit_url",
+              "value": "={{ $json.commits.url }}",
+              "type": "string"
+            },
+            {
+              "id": "01789012-3456-2345-0178-9abcdef01234",
+              "name": "added_files",
+              "value": "={{ $json.commits.added || [] }}",
+              "type": "array"
+            },
+            {
+              "id": "12890123-4567-3456-1289-abcdef012345",
+              "name": "modified_files",
+              "value": "={{ $json.commits.modified || [] }}",
+              "type": "array"
+            },
+            {
+              "id": "23901234-5678-4567-2390-bcdef0123456",
+              "name": "removed_files",
+              "value": "={{ $json.commits.removed || [] }}",
+              "type": "array"
+            },
+            {
+              "id": "34012345-6789-5678-3401-cdef01234567",
+              "name": "total_files_changed",
+              "value": "={{ ($json.commits.added?.length || 0) + ($json.commits.modified?.length || 0) + ($json.commits.removed?.length || 0) }}",
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "id": "g6h7i8j9-k0l1-m234-5678-90123456789a",
+      "name": "Process Commit Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1040,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://mcp-server:8001/analyze-commit",
+        "authentication": "genericCredential",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "commit_hash",
+              "value": "={{ $json.commit_hash }}"
+            },
+            {
+              "name": "commit_message",
+              "value": "={{ $json.commit_message }}"
+            },
+            {
+              "name": "commit_author",
+              "value": "={{ $json.commit_author }}"
+            },
+            {
+              "name": "repository_name",
+              "value": "={{ $json.repository_name }}"
+            },
+            {
+              "name": "branch_name",
+              "value": "={{ $json.branch_name }}"
+            },
+            {
+              "name": "added_files",
+              "value": "={{ $json.added_files }}"
+            },
+            {
+              "name": "modified_files",
+              "value": "={{ $json.modified_files }}"
+            },
+            {
+              "name": "removed_files",
+              "value": "={{ $json.removed_files }}"
+            },
+            {
+              "name": "total_files_changed",
+              "value": "={{ $json.total_files_changed }}"
+            },
+            {
+              "name": "commit_url",
+              "value": "={{ $json.commit_url }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "retry": {
+            "enabled": true,
+            "maxAttempts": 3,
+            "waitBetween": 1000
+          }
+        }
+      },
+      "id": "h8i9j0k1-l2m3-n456-7890-12345678901b",
+      "name": "Analyze Commit with MCP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "databaseId": "={{ $env.NOTION_DATABASE_ID }}",
+        "title": "={{ $('Process Commit Data').item.json.commit_message }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Commit Hash",
+              "textValue": "={{ $('Process Commit Data').item.json.commit_hash }}"
+            },
+            {
+              "key": "Author",
+              "textValue": "={{ $('Process Commit Data').item.json.commit_author }}"
+            },
+            {
+              "key": "Repository",
+              "textValue": "={{ $('Process Commit Data').item.json.repository_name }}"
+            },
+            {
+              "key": "Branch",
+              "selectValue": "={{ $('Process Commit Data').item.json.branch_name }}"
+            },
+            {
+              "key": "Files Changed",
+              "numberValue": "={{ $('Process Commit Data').item.json.total_files_changed }}"
+            },
+            {
+              "key": "Added Lines",
+              "numberValue": "={{ $json.analysis?.stats?.added_lines || 0 }}"
+            },
+            {
+              "key": "Deleted Lines",
+              "numberValue": "={{ $json.analysis?.stats?.deleted_lines || 0 }}"
+            },
+            {
+              "key": "Date",
+              "dateValue": "={{ $('Process Commit Data').item.json.commit_timestamp }}"
+            },
+            {
+              "key": "Analysis Report",
+              "richTextValue": "={{ $json.analysis?.report || 'Analysis not available' }}"
+            },
+            {
+              "key": "Commit URL",
+              "urlValue": "={{ $('Process Commit Data').item.json.commit_url }}"
+            }
+          ]
+        }
+      },
+      "id": "i0j1k2l3-m4n5-o678-9012-345678901234",
+      "name": "Create Notion Entry",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        300
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "notion-credentials",
+          "name": "Notion API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "success123-4567-890a-bcde-f0123456789a",
+              "name": "status",
+              "value": "success",
+              "type": "string"
+            },
+            {
+              "id": "message234-5678-901b-cdef-0123456789ab",
+              "name": "message",
+              "value": "Commit successfully processed and added to Notion",
+              "type": "string"
+            },
+            {
+              "id": "commit345-6789-012c-def0-123456789abc",
+              "name": "commit_hash",
+              "value": "={{ $('Process Commit Data').item.json.commit_hash }}",
+              "type": "string"
+            },
+            {
+              "id": "notion456-789a-123d-ef01-23456789abcd",
+              "name": "notion_page_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "j2k3l4m5-n6o7-p890-1234-56789abcdef0",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "error123-4567-890a-bcde-f0123456789a",
+              "name": "status",
+              "value": "error",
+              "type": "string"
+            },
+            {
+              "id": "errormsg234-5678-901b-cdef-0123456789ab",
+              "name": "message",
+              "value": "Failed to process commit",
+              "type": "string"
+            },
+            {
+              "id": "errordetail345-6789-012c-def0-123456789abc",
+              "name": "error_details",
+              "value": "={{ $json.error || 'Unknown error occurred' }}",
+              "type": "string"
+            },
+            {
+              "id": "errorcommit456-789a-123d-ef01-23456789abcd",
+              "name": "commit_hash",
+              "value": "={{ $('Process Commit Data').item.json.commit_hash || 'N/A' }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "k4l5m6n7-o8p9-q012-3456-789abcdef012",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1440,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SLACK_WEBHOOK_URL || '' }}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "🚨 GitHub Commit Processing Error: {{ $json.message }} - Commit: {{ $json.commit_hash }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "l6m7n8o9-p0q1-r234-5678-90abcdef1234",
+      "name": "Notify Error (Optional)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1640,
+        480
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "GitHub Webhook": {
+      "main": [
+        [
+          {
+            "node": "Filter Push Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Push Events": {
+      "main": [
+        [
+          {
+            "node": "Extract Basic Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Basic Info": {
+      "main": [
+        [
+          {
+            "node": "Split Commits",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Commits": {
+      "main": [
+        [
+          {
+            "node": "Process Commit Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Commit Data": {
+      "main": [
+        [
+          {
+            "node": "Analyze Commit with MCP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Commit with MCP": {
+      "main": [
+        [
+          {
+            "node": "Create Notion Entry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Notion Entry": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Response": {
+      "main": [
+        [
+          {
+            "node": "Notify Error (Optional)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": {
+      "enabled": true
+    }
+  },
+  "versionId": "1",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "github-notion-automation",
+  "tags": [
+    {
+      "createdAt": "2025-01-09T12:00:00.000Z",
+      "updatedAt": "2025-01-09T12:00:00.000Z",
+      "id": "auto-commit",
+      "name": "automation"
+    }
+  ]
+}

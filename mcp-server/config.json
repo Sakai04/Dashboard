@@ -1,0 +1,65 @@
+{
+  "server": {
+    "name": "commit-analyzer",
+    "version": "1.0.0",
+    "description": "MCP Server for GitHub commit analysis and report generation",
+    "host": "0.0.0.0",
+    "port": 8001,
+    "reload": false
+  },
+  "analysis": {
+    "cache_enabled": true,
+    "cache_ttl_hours": 24,
+    "max_cache_size": 1000,
+    "quality_thresholds": {
+      "excellent": 9,
+      "good": 7,
+      "fair": 5,
+      "poor": 3
+    },
+    "impact_thresholds": {
+      "low": 3,
+      "medium": 10,
+      "high": 20
+    }
+  },
+  "openai": {
+    "model": "gpt-3.5-turbo",
+    "max_tokens": 500,
+    "temperature": 0.3,
+    "enabled": true,
+    "fallback_enabled": true
+  },
+  "github": {
+    "api_version": "2022-11-28",
+    "base_url": "https://api.github.com",
+    "timeout": 30
+  },
+  "notion": {
+    "api_version": "2022-06-28",
+    "timeout": 30
+  },
+  "logging": {
+    "level": "INFO",
+    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    "file": "logs/mcp-server.log",
+    "max_size_mb": 10,
+    "backup_count": 5
+  },
+  "security": {
+    "allowed_origins": ["*"],
+    "api_key_required": false,
+    "rate_limit": {
+      "enabled": true,
+      "requests_per_minute": 60
+    }
+  },
+  "features": {
+    "ai_analysis": true,
+    "code_quality_scoring": true,
+    "issue_detection": true,
+    "recommendation_engine": true,
+    "statistical_analysis": true,
+    "report_generation": true
+  }
+}
