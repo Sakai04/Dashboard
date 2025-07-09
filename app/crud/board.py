@@ -10,7 +10,7 @@ async def get_board_by_index(db: AsyncSession, board_index: str):
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
-# 모든 Board 조회
+
 async def get_boards(db: AsyncSession, skip: int = 0, limit: int = 100):
     stmt = select(Board).options(selectinload(Board.posts)).offset(skip).limit(limit)
     result = await db.execute(stmt)
